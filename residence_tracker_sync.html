@@ -1138,7 +1138,8 @@
         const CALENDAR_KEYWORDS = [
             'Lunes Tools', 'Lunes Miogest', 'Lunes Gestim', 'Lunes Inmovilla',
             'Lunes Regold', 'Lunes HCPro', 'Trimestral', 'Offsite',
-            'Taskforce Regold', 'DNs', 'Estrategia CRM\'s'
+            'Taskforce Regold', 'DNs', 'Estrategia CRM\'s',
+            'Consejo', 'Real Estate Awards'
         ];
 
         let currentYear = 2026;
@@ -1320,6 +1321,8 @@
             if (!accessToken) return;
             
             try {
+                console.log('🔄 Sincronizando eventos del calendario...');
+                
                 // Obtener eventos del año actual
                 const timeMin = new Date(currentYear, 0, 1).toISOString();
                 const timeMax = new Date(currentYear, 11, 31, 23, 59, 59).toISOString();
@@ -1333,19 +1336,34 @@
                     }
                 );
 
+                if (!response.ok) {
+                    console.error('❌ Error al obtener eventos del calendario:', response.status, response.statusText);
+                    return;
+                }
+
                 const result = await response.json();
+                let eventsImported = 0;
                 
                 if (result.items) {
+                    console.log(`📅 ${result.items.length} eventos encontrados en el calendario`);
+                    
                     result.items.forEach(event => {
-                        const summary = event.summary || '';
+                        const summary = (event.summary || '').toLowerCase();
+                        const description = (event.description || '').toLowerCase();
+                        const location = (event.location || '').toLowerCase();
+                        
+                        // Buscar en título, descripción y ubicación (case-insensitive)
+                        const combinedText = `${summary} ${description} ${location}`;
                         
                         // Buscar palabras clave
                         const matchedKeyword = CALENDAR_KEYWORDS.find(keyword => 
-                            summary.includes(keyword)
+                            combinedText.includes(keyword.toLowerCase())
                         );
                         
                         if (matchedKeyword && event.start) {
                             const eventDate = event.start.date || event.start.dateTime.split('T')[0];
+                            
+                            console.log(`✅ Evento encontrado: "${event.summary}" (${eventDate}) → Keyword: "${matchedKeyword}"`);
                             
                             // Añadir al perfil actual si no existe ya
                             if (data[currentProfile][eventDate]) {
@@ -1354,23 +1372,34 @@
                                 if (!currentNote.includes(matchedKeyword)) {
                                     data[currentProfile][eventDate].note = 
                                         currentNote ? `${currentNote}\n${matchedKeyword}` : matchedKeyword;
+                                    eventsImported++;
                                 }
                             } else {
                                 data[currentProfile][eventDate] = {
                                     location: null,
                                     note: matchedKeyword
                                 };
+                                eventsImported++;
                             }
                         }
                     });
                     
-                    lastCalendarSync = new Date();
-                    // Guardar cambios en Sheet
-                    await saveDataToSheets();
+                    console.log(`📊 Total eventos importados: ${eventsImported}`);
+                    
+                    if (eventsImported > 0) {
+                        lastCalendarSync = new Date();
+                        // Guardar cambios en Sheet
+                        await saveDataToSheets();
+                        renderCalendar();
+                        updateSummary();
+                    } else {
+                        console.log('ℹ️ No se encontraron eventos con las palabras clave configuradas');
+                        console.log('📋 Keywords configuradas:', CALENDAR_KEYWORDS);
+                    }
                 }
                 
             } catch (error) {
-                console.error('Error al sincronizar Calendar:', error);
+                console.error('❌ Error al sincronizar Calendar:', error);
             }
         }
 
@@ -1491,8 +1520,10 @@
             statusText.textContent = text;
         }
 
-        function manualSync() {
-            saveDataToSheets();
+        async function manualSync() {
+            console.log('🔄 Sincronización manual iniciada...');
+            await syncCalendarEvents();
+            await saveDataToSheets();
         }
 
         function switchProfile(profile) {
