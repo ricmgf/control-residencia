@@ -997,6 +997,7 @@
                 <div class="actions">
                     <button class="action-btn" onclick="exportData()">💾 Exportar</button>
                     <button class="action-btn" onclick="importData()">📥 Importar</button>
+                    <button class="action-btn" style="background: #dc3545;" onclick="logout()">🚪 Cerrar Sesión</button>
                 </div>
             </div>
         </div>
@@ -1048,11 +1049,75 @@
         let tokenClient;
         let accessToken = null;
         let fileId = null;
+        let tokenExpiryTime = null;
 
         let data = {
             RG: {},
             SB: {}
         };
+
+        // Check if we have a valid saved session
+        function checkSavedSession() {
+            const savedToken = localStorage.getItem('google_access_token');
+            const savedExpiry = localStorage.getItem('token_expiry');
+            const savedFileId = localStorage.getItem('drive_file_id');
+            
+            if (savedToken && savedExpiry && savedFileId) {
+                const now = Date.now();
+                if (now < parseInt(savedExpiry)) {
+                    // Token is still valid
+                    accessToken = savedToken;
+                    tokenExpiryTime = parseInt(savedExpiry);
+                    fileId = savedFileId;
+                    document.getElementById('loginOverlay').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    loadDataFromDrive();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Save session data
+        function saveSession(token, expiresIn, fId) {
+            const expiryTime = Date.now() + (expiresIn * 1000) - 60000; // 1 min buffer
+            localStorage.setItem('google_access_token', token);
+            localStorage.setItem('token_expiry', expiryTime.toString());
+            if (fId) {
+                localStorage.setItem('drive_file_id', fId);
+            }
+            accessToken = token;
+            tokenExpiryTime = expiryTime;
+        }
+
+        // Clear session
+        function clearSession() {
+            localStorage.removeItem('google_access_token');
+            localStorage.removeItem('token_expiry');
+            localStorage.removeItem('drive_file_id');
+            accessToken = null;
+            tokenExpiryTime = null;
+            fileId = null;
+        }
+
+        // Refresh token if needed
+        async function ensureValidToken() {
+            if (!accessToken || !tokenExpiryTime) {
+                return false;
+            }
+            
+            const now = Date.now();
+            // Refresh if token expires in less than 5 minutes
+            if (now >= tokenExpiryTime - 300000) {
+                // Request new token silently
+                return new Promise((resolve) => {
+                    tokenClient.requestAccessToken({ prompt: '' });
+                    // Wait a bit for the callback
+                    setTimeout(() => resolve(!!accessToken), 1000);
+                });
+            }
+            return true;
+        }
 
         // Calcular festivos
         function getEasterDate(year) {
@@ -1152,10 +1217,13 @@
             if (response.error) {
                 console.error('Error en autenticación:', response);
                 updateSyncStatus('error', 'Error al conectar');
+                clearSession();
                 return;
             }
 
-            accessToken = response.access_token;
+            // Save session with expiry (tokens typically last 3600 seconds)
+            saveSession(response.access_token, response.expires_in || 3600, fileId);
+            
             document.getElementById('loginOverlay').classList.add('hidden');
             document.getElementById('mainApp').classList.remove('hidden');
             
@@ -1212,6 +1280,13 @@
         }
 
         async function saveDataToDrive() {
+            // Ensure token is valid before saving
+            const tokenValid = await ensureValidToken();
+            if (!tokenValid) {
+                updateSyncStatus('error', 'Sesión expirada');
+                return;
+            }
+
             updateSyncStatus('syncing', 'Guardando...');
             
             try {
@@ -1246,8 +1321,9 @@
 
                 const result = await response.json();
                 
-                if (!fileId) {
+                if (!fileId && result.id) {
                     fileId = result.id;
+                    localStorage.setItem('drive_file_id', fileId);
                 }
                 
                 updateSyncStatus('synced', 'Sincronizado');
@@ -1648,9 +1724,21 @@
             }
         });
 
+        function logout() {
+            if (confirm('¿Cerrar sesión? Tendrás que volver a iniciar sesión la próxima vez.')) {
+                clearSession();
+                location.reload();
+            }
+        }
+
         // Inicializar cuando se carga Google Identity Services
         window.onload = function() {
             initGoogleAuth();
+            // Check if we have a saved valid session
+            if (!checkSavedSession()) {
+                // No valid session, show login
+                document.getElementById('loginOverlay').classList.remove('hidden');
+            }
         };
     </script>
 </body>
