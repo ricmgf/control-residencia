@@ -656,7 +656,7 @@
             }
 
             .day-cell {
-                min-height: 50px;
+                min-height: 85px;
                 padding: 3px;
             }
 
@@ -666,7 +666,7 @@
 
             .day-note, .holiday-note {
                 font-size: 0.55em;
-                max-height: 18px;
+                max-height: 30px;
             }
 
             .summary-card {
@@ -718,7 +718,7 @@
             }
 
             .day-cell {
-                min-height: 65px;
+                min-height: 85px;
             }
         }
 
@@ -760,8 +760,8 @@
             }
 
             .legend {
-                grid-template-columns: repeat(5, 1fr);
                 gap: 15px;
+                /* Mantener display: flex y sticky - NO cambiar a grid */
             }
 
             .legend-item {
@@ -774,7 +774,7 @@
             }
 
             .day-cell {
-                min-height: 70px;
+                min-height: 85px;
                 padding: 5px;
                 border-radius: 8px;
             }
@@ -785,7 +785,12 @@
 
             .day-note {
                 font-size: 0.65em;
-                max-height: 24px;
+                max-height: 30px;
+            }
+
+            .holiday-note {
+                font-size: 0.65em;
+                max-height: 30px;
             }
 
             .holiday-note {
@@ -864,7 +869,7 @@
             }
 
             .day-cell {
-                min-height: 45px;
+                min-height: 85px;
             }
 
             .calendar-grid {
@@ -1132,7 +1137,8 @@
         const CALENDAR_KEYWORDS = [
             'Lunes Tools', 'Lunes Miogest', 'Lunes Gestim', 'Lunes Inmovilla',
             'Lunes Regold', 'Lunes HCPro', 'Trimestral', 'Offsite',
-            'Taskforce Regold', 'DNs', 'Estrategia CRM\'s'
+            'Taskforce Regold', 'DNs', 'Estrategia CRM\'s',
+            'Consejo', 'Real Estate Awards'
         ];
 
         let currentYear = 2026;
@@ -1142,6 +1148,7 @@
         let tokenClient;
         let accessToken = null;
         let lastCalendarSync = null;
+        let lastServerTimestamp = 0; // Para control anti-sobrescritura
 
         let data = {
             RG: {},
@@ -1260,10 +1267,66 @@
             loadDataFromSheets();
         }
 
+        // ===============================
+        // SISTEMA ANTI-SOBRESCRITURA CON TIMESTAMPS
+        // ===============================
+        async function readServerTimestamp() {
+            try {
+                const response = await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!Z1`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) return 0;
+
+                const result = await response.json();
+                const timestamp = result.values && result.values[0] && result.values[0][0];
+                return parseInt(timestamp) || 0;
+            } catch (error) {
+                console.error('Error al leer timestamp:', error);
+                return 0;
+            }
+        }
+
+        async function updateServerTimestamp() {
+            const newTimestamp = Date.now();
+            
+            try {
+                await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!Z1?valueInputOption=RAW`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            values: [[newTimestamp]]
+                        })
+                    }
+                );
+                
+                lastServerTimestamp = newTimestamp;
+                console.log(`✅ Timestamp actualizado: ${new Date(newTimestamp).toLocaleString('es-ES')}`);
+                return true;
+            } catch (error) {
+                console.error('Error al actualizar timestamp:', error);
+                return false;
+            }
+        }
+
         async function loadDataFromSheets() {
             updateSyncStatus('syncing', 'Cargando datos...');
             
             try {
+                // Leer timestamp del servidor primero
+                lastServerTimestamp = await readServerTimestamp();
+                console.log(`📥 Timestamp servidor: ${new Date(lastServerTimestamp).toLocaleString('es-ES')}`);
+                
                 // Cargar datos de Google Sheets
                 const response = await fetch(
                     `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:D`,
@@ -1299,10 +1362,19 @@
                 updateSummary();
                 updateSyncStatus('synced', 'Sincronizado');
                 
-                // Sincronizar cada 30 segundos
-                setInterval(syncData, 30000);
-                // Sincronizar Calendar cada 5 minutos
-                setInterval(syncCalendarEvents, 300000);
+                // Smart Sync: Sincronizar solo cuando la pestaña está visible
+                setInterval(() => {
+                    if (document.visibilityState === 'visible') {
+                        syncData();
+                    }
+                }, 30000); // Cada 30 segundos
+                
+                // Sincronizar Calendar solo cuando la pestaña está visible
+                setInterval(() => {
+                    if (document.visibilityState === 'visible') {
+                        syncCalendarEvents();
+                    }
+                }, 300000); // Cada 5 minutos
                 
             } catch (error) {
                 console.error('Error al cargar datos:', error);
@@ -1314,6 +1386,8 @@
             if (!accessToken) return;
             
             try {
+                console.log('🔄 Sincronizando eventos del calendario...');
+                
                 // Obtener eventos del año actual
                 const timeMin = new Date(currentYear, 0, 1).toISOString();
                 const timeMax = new Date(currentYear, 11, 31, 23, 59, 59).toISOString();
@@ -1327,19 +1401,34 @@
                     }
                 );
 
+                if (!response.ok) {
+                    console.error('❌ Error al obtener eventos del calendario:', response.status);
+                    return;
+                }
+
                 const result = await response.json();
+                let eventsImported = 0;
                 
                 if (result.items) {
+                    console.log(`📅 ${result.items.length} eventos encontrados en el calendario`);
+                    
                     result.items.forEach(event => {
-                        const summary = event.summary || '';
+                        const summary = (event.summary || '').toLowerCase();
+                        const description = (event.description || '').toLowerCase();
+                        const location = (event.location || '').toLowerCase();
                         
-                        // Buscar palabras clave
+                        // Buscar en título, descripción y ubicación
+                        const combinedText = `${summary} ${description} ${location}`;
+                        
+                        // Buscar palabras clave (case-insensitive)
                         const matchedKeyword = CALENDAR_KEYWORDS.find(keyword => 
-                            summary.includes(keyword)
+                            combinedText.includes(keyword.toLowerCase())
                         );
                         
                         if (matchedKeyword && event.start) {
                             const eventDate = event.start.date || event.start.dateTime.split('T')[0];
+                            
+                            console.log(`✅ Evento encontrado: "${event.summary}" (${eventDate}) → Keyword: "${matchedKeyword}"`);
                             
                             // Añadir al perfil actual si no existe ya
                             if (data[currentProfile][eventDate]) {
@@ -1348,23 +1437,32 @@
                                 if (!currentNote.includes(matchedKeyword)) {
                                     data[currentProfile][eventDate].note = 
                                         currentNote ? `${currentNote}\n${matchedKeyword}` : matchedKeyword;
+                                    eventsImported++;
                                 }
                             } else {
                                 data[currentProfile][eventDate] = {
                                     location: null,
                                     note: matchedKeyword
                                 };
+                                eventsImported++;
                             }
                         }
                     });
                     
-                    lastCalendarSync = new Date();
-                    // Guardar cambios en Sheet
-                    await saveDataToSheets();
+                    console.log(`📊 Total eventos importados: ${eventsImported}`);
+                    
+                    if (eventsImported > 0) {
+                        lastCalendarSync = new Date();
+                        // Guardar cambios en Sheet
+                        await saveDataToSheets();
+                        renderCalendar();
+                    } else {
+                        console.log('ℹ️ No se encontraron eventos con las palabras clave configuradas');
+                    }
                 }
                 
             } catch (error) {
-                console.error('Error al sincronizar Calendar:', error);
+                console.error('❌ Error al sincronizar Calendar:', error);
             }
         }
 
@@ -1372,6 +1470,28 @@
             updateSyncStatus('syncing', 'Guardando...');
             
             try {
+                // VERIFICAR TIMESTAMP ANTES DE GUARDAR (Anti-sobrescritura)
+                const currentServerTimestamp = await readServerTimestamp();
+                
+                if (currentServerTimestamp > lastServerTimestamp) {
+                    updateSyncStatus('error', 'Datos más recientes detectados');
+                    
+                    const serverDate = new Date(currentServerTimestamp).toLocaleString('es-ES');
+                    const localDate = new Date(lastServerTimestamp).toLocaleString('es-ES');
+                    
+                    const message = `⚠️ CONFLICTO DE SINCRONIZACIÓN\n\n` +
+                                  `Hay cambios más recientes en el servidor:\n` +
+                                  `- Servidor: ${serverDate}\n` +
+                                  `- Tu última carga: ${localDate}\n\n` +
+                                  `¿Quieres cargar los datos actualizados del servidor?\n\n` +
+                                  `⚠️ IMPORTANTE: Tus cambios locales se perderán.`;
+                    
+                    if (confirm(message)) {
+                        await loadDataFromSheets();
+                    }
+                    return;
+                }
+                
                 // Convertir datos internos a formato de Sheet
                 const rows = [];
                 
@@ -1413,6 +1533,9 @@
                         })
                     }
                 );
+                
+                // ACTUALIZAR TIMESTAMP DESPUÉS DE GUARDAR EXITOSAMENTE
+                await updateServerTimestamp();
                 
                 updateSyncStatus('synced', 'Sincronizado');
             } catch (error) {
