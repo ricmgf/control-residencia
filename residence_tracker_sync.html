@@ -349,14 +349,17 @@
             font-size: 0.55em;
             color: #333;
             text-align: center;
-            line-height: 1.1;
-            max-height: 16px;
+            line-height: 1.2;
+            max-height: 28px;
             overflow: hidden;
             text-overflow: ellipsis;
             font-weight: 700;
             margin-top: auto;
             padding-top: 1px;
             word-break: break-word;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }
 
         .holiday-note {
@@ -1055,29 +1058,30 @@
         </div>
 
         <div class="dashboard">
+            <!-- Selector de colores FUERA para que sea sticky -->
+            <div class="legend">
+                <div class="legend-item selected" onclick="selectLocation('MAD')" data-location="MAD">
+                    <span>🟡 Madrid</span>
+                </div>
+                <div class="legend-item" onclick="selectLocation('AND')" data-location="AND">
+                    <span>🔵 Andratx</span>
+                </div>
+                <div class="legend-item" onclick="selectLocation('IT')" data-location="IT">
+                    <span>🔴 Italia</span>
+                </div>
+                <div class="legend-item" onclick="selectLocation('FR')" data-location="FR">
+                    <span>🟢 Francia</span>
+                </div>
+                <div class="legend-item" onclick="selectLocation('OTHER')" data-location="OTHER">
+                    <span>🟣 Other</span>
+                </div>
+            </div>
+            
             <div class="calendar-section">
                 <div class="year-selector">
                     <button class="year-btn" onclick="changeYear(-1)">‹</button>
                     <div class="year-display" id="yearDisplay">2026</div>
                     <button class="year-btn" onclick="changeYear(1)">›</button>
-                </div>
-
-                <div class="legend">
-                    <div class="legend-item selected" onclick="selectLocation('MAD')" data-location="MAD">
-                        <span>🟡 Madrid</span>
-                    </div>
-                    <div class="legend-item" onclick="selectLocation('AND')" data-location="AND">
-                        <span>🔵 Andratx</span>
-                    </div>
-                    <div class="legend-item" onclick="selectLocation('IT')" data-location="IT">
-                        <span>🔴 Italia</span>
-                    </div>
-                    <div class="legend-item" onclick="selectLocation('FR')" data-location="FR">
-                        <span>🟢 Francia</span>
-                    </div>
-                    <div class="legend-item" onclick="selectLocation('OTHER')" data-location="OTHER">
-                        <span>🟣 Other</span>
-                    </div>
                 </div>
 
                 <div id="calendar"></div>
