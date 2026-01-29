@@ -926,11 +926,14 @@
 
         .modal-input {
             width: 100%;
-            padding: 12px;
+            padding: 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 1em;
             margin-bottom: 20px;
+            min-height: 120px;
+            line-height: 1.6;
+            resize: vertical;
         }
 
         .modal-buttons {
@@ -1098,7 +1101,7 @@
 
     <input type="file" id="fileInput" style="display:none" accept=".json" onchange="handleFileImport(event)">
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleAuth()"></script>
     <script>
         const LOCATIONS = {
             MAD: { name: 'Madrid', color: '#FFEB3B', emoji: '🟡' },
@@ -1122,7 +1125,8 @@
         const CALENDAR_KEYWORDS = [
             'Lunes Tools', 'Lunes Miogest', 'Lunes Gestim', 'Lunes Inmovilla',
             'Lunes Regold', 'Lunes HCPro', 'Trimestral', 'Offsite',
-            'Taskforce Regold', 'DNs', 'Estrategia CRM\'s'
+            'Taskforce Regold', 'DNs', 'Estrategia CRM\'s',
+            'Consejo', 'Real Estate Awards'
         ];
 
         let currentYear = 2026;
@@ -1132,6 +1136,7 @@
         let tokenClient;
         let accessToken = null;
         let lastCalendarSync = null;
+        let lastServerTimestamp = 0; // Para control de sincronización anti-sobrescritura
 
         let data = {
             RG: {},
@@ -1230,6 +1235,8 @@
                 scope: SCOPES,
                 callback: handleAuthResponse,
             });
+            
+            console.log('✅ Google Identity Services inicializado correctamente');
         }
 
         function signIn() {
@@ -1250,10 +1257,66 @@
             loadDataFromSheets();
         }
 
+        // ===============================
+        // SISTEMA ANTI-SOBRESCRITURA CON TIMESTAMPS
+        // ===============================
+        async function readServerTimestamp() {
+            try {
+                const response = await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!Z1`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) return 0;
+
+                const result = await response.json();
+                const timestamp = result.values && result.values[0] && result.values[0][0];
+                return parseInt(timestamp) || 0;
+            } catch (error) {
+                console.error('Error al leer timestamp:', error);
+                return 0;
+            }
+        }
+
+        async function updateServerTimestamp() {
+            const newTimestamp = Date.now();
+            
+            try {
+                await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!Z1?valueInputOption=RAW`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            values: [[newTimestamp]]
+                        })
+                    }
+                );
+                
+                lastServerTimestamp = newTimestamp;
+                console.log(`✅ Timestamp actualizado: ${new Date(newTimestamp).toLocaleString('es-ES')}`);
+                return true;
+            } catch (error) {
+                console.error('Error al actualizar timestamp:', error);
+                return false;
+            }
+        }
+
         async function loadDataFromSheets() {
             updateSyncStatus('syncing', 'Cargando datos...');
             
             try {
+                // Leer timestamp del servidor primero
+                lastServerTimestamp = await readServerTimestamp();
+                console.log(`📥 Timestamp servidor: ${new Date(lastServerTimestamp).toLocaleString('es-ES')}`);
+                
                 // Cargar datos de Google Sheets
                 const response = await fetch(
                     `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:D`,
@@ -1362,6 +1425,28 @@
             updateSyncStatus('syncing', 'Guardando...');
             
             try {
+                // VERIFICAR TIMESTAMP ANTES DE GUARDAR (Anti-sobrescritura)
+                const currentServerTimestamp = await readServerTimestamp();
+                
+                if (currentServerTimestamp > lastServerTimestamp) {
+                    updateSyncStatus('error', 'Datos más recientes detectados');
+                    
+                    const serverDate = new Date(currentServerTimestamp).toLocaleString('es-ES');
+                    const localDate = new Date(lastServerTimestamp).toLocaleString('es-ES');
+                    
+                    const message = `⚠️ CONFLICTO DE SINCRONIZACIÓN\n\n` +
+                                  `Hay cambios más recientes en el servidor:\n` +
+                                  `- Servidor: ${serverDate}\n` +
+                                  `- Tu última carga: ${localDate}\n\n` +
+                                  `¿Quieres cargar los datos actualizados del servidor?\n\n` +
+                                  `⚠️ IMPORTANTE: Tus cambios locales se perderán.`;
+                    
+                    if (confirm(message)) {
+                        await loadDataFromSheets();
+                    }
+                    return;
+                }
+                
                 // Convertir datos internos a formato de Sheet
                 const rows = [];
                 
@@ -1403,6 +1488,9 @@
                         })
                     }
                 );
+                
+                // ACTUALIZAR TIMESTAMP DESPUÉS DE GUARDAR EXITOSAMENTE
+                await updateServerTimestamp();
                 
                 updateSyncStatus('synced', 'Sincronizado');
             } catch (error) {
@@ -1834,9 +1922,7 @@
         });
 
         // Inicializar cuando se carga Google Identity Services
-        window.onload = function() {
-            initGoogleAuth();
-        };
+        // El script se inicializa automáticamente cuando Google GSI se carga (onload en script tag)
     </script>
 </body>
 </html>
