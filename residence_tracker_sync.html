@@ -1833,16 +1833,21 @@ async function loadDataFromSheets() {
 
         function getDayData(year, month, day) {
             const key = getDayKey(year, month, day);
-            const exists = data[currentProfile] && data[currentProfile][key];
             
-            // Log solo para días con datos (para no saturar la consola)
-            if (exists) {
-                console.log(`✅ Fecha encontrada: ${key}`, data[currentProfile][key]);
+            // Si no existe, crear objeto vacío
+            if (!data[currentProfile]) {
+                data[currentProfile] = {};
             }
             
             if (!data[currentProfile][key]) {
-                data[currentProfile][key] = { location: null, note: '' };
+                data[currentProfile][key] = { location: null, note: '', timestamp: Date.now() };
             }
+            
+            // Log solo para días con datos
+            if (data[currentProfile][key].location) {
+                console.log(`✅ ${key}: ${data[currentProfile][key].location}`);
+            }
+            
             return data[currentProfile][key];
         }
 
