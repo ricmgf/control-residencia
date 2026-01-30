@@ -1407,26 +1407,31 @@ async function loadDataFromSheets() {
 
                 const result = await response.json();
                 
-                // Convertir datos de Sheet a formato interno
+                // Limpiar datos antes de rellenar
                 data = { Ricardo: {}, Sylvia: {} };
                 
                 if (result.values && result.values.length > 0) {
                     console.log(`📊 Cargados ${result.values.length} registros desde Sheets`);
                     result.values.forEach(row => {
                         const [date, location, note, profile] = row;
-                        if (date && profile) {
-                            if (!data[profile]) data[profile] = {};
-                            data[profile][date] = {
-                                location: location || null,
-                                note: note || ''
+                        if (date && profile && data[profile]) {
+                            // Normalizar la fecha para evitar espacios y caracteres raros
+                            const cleanDate = date.trim();
+                            data[profile][cleanDate] = {
+                                location: location ? location.trim() : null,
+                                note: note ? note.trim() : ''
                             };
                         }
                     });
+                    // Log de debugging para ver los datos procesados
+                    console.log("📍 Datos procesados en memoria para perfil actual:", data[currentProfile]);
+                    console.log(`📊 Total fechas en ${currentProfile}:`, Object.keys(data[currentProfile]).length);
                 } else {
                     console.log('ℹ️ No hay datos previos en Sheets - iniciando calendario vacío');
                 }
                 
-                // Renderizar interfaz
+                // CRÍTICO: Renderizar interfaz INMEDIATAMENTE
+                console.log("🎨 Dibujando calendario...");
                 renderCalendar();
                 updateSummary();
                 
@@ -1767,6 +1772,13 @@ async function loadDataFromSheets() {
 
         function getDayData(year, month, day) {
             const key = getDayKey(year, month, day);
+            const exists = data[currentProfile] && data[currentProfile][key];
+            
+            // Log solo para días con datos (para no saturar la consola)
+            if (exists) {
+                console.log(`✅ Fecha encontrada: ${key}`, data[currentProfile][key]);
+            }
+            
             if (!data[currentProfile][key]) {
                 data[currentProfile][key] = { location: null, note: '' };
             }
@@ -1774,6 +1786,18 @@ async function loadDataFromSheets() {
         }
 
         function renderCalendar() {
+            console.log('🎨 renderCalendar() iniciado');
+            console.log(`📊 Perfil actual: ${currentProfile}`);
+            
+            // VERIFICACIÓN CRÍTICA: Asegurar que el perfil existe
+            if (!data[currentProfile]) {
+                console.warn(`⚠️ El perfil ${currentProfile} no existe en data. Creándolo...`);
+                data[currentProfile] = {};
+            }
+            
+            console.log(`📊 Fechas disponibles:`, Object.keys(data[currentProfile]).length);
+            console.log(`📊 Primeras 5 fechas:`, Object.keys(data[currentProfile]).slice(0, 5));
+            
             const calendar = document.getElementById('calendar');
             calendar.innerHTML = '';
 
