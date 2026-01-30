@@ -1158,26 +1158,44 @@
             Sylvia: {}
         };
 
-        // Inicializar Google Auth (se llama cuando se carga el script de Google)
-        function initGoogleAuth() {
+        // Inicializar Google Auth - VERSIÓN ROBUSTA PARA IPAD
+        window.initGoogleAuth = function() {
+            console.log('🔧 Init Google Auth');
             if (typeof google === 'undefined' || !google.accounts) {
-                setTimeout(initGoogleAuth, 500);
+                console.log('⏳ Google no listo, reintentando...');
+                setTimeout(window.initGoogleAuth, 500);
                 return;
             }
             
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: handleAuthResponse,
-            });
-            
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID,
+                    scope: SCOPES,
+                    callback: handleAuthResponse,
+                });
+                
+                const btn = document.getElementById('googleSignInBtn');
+                const btnText = document.getElementById('btnText');
+                if (btn && btnText) {
+                    btn.disabled = false;
+                    btnText.textContent = 'Conectar con Google';
+                    console.log('✅ Botón activado');
+                }
+            } catch(e) {
+                console.error('❌ Error init:', e);
+            }
+        };
+
+        // TIMEOUT DE EMERGENCIA - Si después de 5 seg el botón sigue bloqueado, forzar activación
+        setTimeout(() => {
             const btn = document.getElementById('googleSignInBtn');
             const btnText = document.getElementById('btnText');
-            if (btn && btnText) {
+            if (btn && btn.disabled) {
                 btn.disabled = false;
                 btnText.textContent = 'Conectar con Google';
+                console.log('⏰ Botón activado por timeout emergencia');
             }
-        }
+        }, 5000);
 
         // Calcular festivos
         function getEasterDate(year) {
@@ -2203,37 +2221,30 @@ async function loadDataFromSheets() {
             }
         });
 
-        // initGoogleAuth se llama automáticamente cuando el script de Google se carga
     </script>
     
     <script>
-      (function() {
-        const loadGoogle = () => {
-          console.log("📥 Cargando script de Google...");
-          const gScript = document.createElement('script');
-          gScript.src = "https://accounts.google.com/gsi/client";
-          gScript.async = true;
-          gScript.defer = true;
-          
-          gScript.onload = () => {
-            setTimeout(() => {
-              if (typeof initGoogleAuth === 'function') {
-                initGoogleAuth();
-              } else {
-                console.error("❌ initGoogleAuth no encontrada");
-              }
-            }, 100);
-          };
-          
-          document.head.appendChild(gScript);
-        };
-
-        if (document.readyState === 'complete') {
-          loadGoogle();
-        } else {
-          window.addEventListener('load', loadGoogle);
-        }
-      })();
+        // CARGA DINÁMICA DE GOOGLE - ESPECIAL PARA IPAD
+        (function() {
+            const gScript = document.createElement('script');
+            gScript.src = 'https://accounts.google.com/gsi/client';
+            gScript.async = true;
+            gScript.defer = true;
+            gScript.onload = () => {
+                console.log('📥 Script de Google cargado');
+                setTimeout(window.initGoogleAuth, 200);
+            };
+            gScript.onerror = (e) => {
+                console.error('❌ Error cargando Google script');
+                // Si falla, al menos el timeout de emergencia activará el botón
+            };
+            
+            if (document.readyState === 'complete') {
+                document.head.appendChild(gScript);
+            } else {
+                window.addEventListener('load', () => document.head.appendChild(gScript));
+            }
+        })();
     </script>
 </body>
 </html>
