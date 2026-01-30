@@ -1412,20 +1412,41 @@ async function loadDataFromSheets() {
                 
                 if (result.values && result.values.length > 0) {
                     console.log(`📊 Cargados ${result.values.length} registros desde Sheets`);
+                    
                     result.values.forEach(row => {
-                        const [date, location, note, profile] = row;
-                        if (date && profile && data[profile]) {
-                            // Normalizar la fecha para evitar espacios y caracteres raros
-                            const cleanDate = date.trim();
-                            data[profile][cleanDate] = {
-                                location: location ? location.trim() : null,
-                                note: note ? note.trim() : ''
-                            };
+                        let [date, location, note, profile] = row;
+                        if (date && profile) {
+                            // --- NORMALIZACIÓN DE FECHA (CRÍTICO) ---
+                            let cleanDate = date.trim();
+                            
+                            // Si viene como DD/MM/YYYY, convertir a YYYY-MM-DD
+                            if (cleanDate.includes('/')) {
+                                const parts = cleanDate.split('/');
+                                if (parts.length === 3 && parts[2].length === 4) {
+                                    // Formato DD/MM/YYYY → YYYY-MM-DD
+                                    cleanDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                    console.log(`🔄 Fecha convertida: ${date} → ${cleanDate}`);
+                                }
+                            }
+                            
+                            // Normalizar nombre de perfil (primera letra mayúscula)
+                            const profileKey = profile.trim().charAt(0).toUpperCase() + profile.trim().slice(1).toLowerCase();
+                            
+                            if (data[profileKey]) {
+                                data[profileKey][cleanDate] = {
+                                    location: location ? location.trim() : null,
+                                    note: note ? note.trim() : ''
+                                };
+                            } else {
+                                console.warn(`⚠️ Perfil desconocido: ${profile}`);
+                            }
                         }
                     });
+                    
                     // Log de debugging para ver los datos procesados
-                    console.log("📍 Datos procesados en memoria para perfil actual:", data[currentProfile]);
-                    console.log(`📊 Total fechas en ${currentProfile}:`, Object.keys(data[currentProfile]).length);
+                    console.log(`📍 Datos normalizados para ${currentProfile}:`, Object.keys(data[currentProfile]).length, "fechas");
+                    console.log(`📊 Primeras 3 fechas:`, Object.keys(data[currentProfile]).slice(0, 3));
+                    console.log(`📊 Ejemplo de datos:`, Object.entries(data[currentProfile]).slice(0, 2));
                 } else {
                     console.log('ℹ️ No hay datos previos en Sheets - iniciando calendario vacío');
                 }
