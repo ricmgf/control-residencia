@@ -357,22 +357,19 @@
         }
 
         .holiday-note {
-            font-size: 0.5em;
+            font-size: 0.52em;
             color: #c62828;
             background: rgba(198, 40, 40, 0.08);
-            text-align: left;
-            line-height: 1.35;
+            text-align: center;
+            line-height: 1.2;
             font-weight: 700;
             margin-top: 2px;
-            padding: 4px 4px;
+            padding: 3px 2px;
             border-radius: 3px;
-            min-height: 36px;
-            max-height: 52px;
+            height: 18px;
             overflow: hidden;
-            word-break: break-word;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
+            white-space: nowrap;
+            text-overflow: ellipsis;
         }
 
         .edit-icon {
@@ -795,8 +792,8 @@
             }
 
             .holiday-note {
-                font-size: 0.6em;
-                max-height: 20px;
+                font-size: 0.55em;
+                height: 18px;
             }
 
             .edit-icon {
@@ -942,11 +939,10 @@
             }
             
             .holiday-note {
-                min-height: 32px;
-                max-height: 46px;
-                padding: 3px 3px;
-                font-size: 0.42em;
-                line-height: 1.3;
+                height: 16px;
+                padding: 2px 1px;
+                font-size: 0.4em;
+                line-height: 1.2;
             }
             
             .edit-icon {
@@ -1329,15 +1325,18 @@
             const spainHolidays = getSpainHolidays(year);
             const italyHolidays = getItalyHolidays(year);
             
-            const holidays = [];
-            if (spainHolidays[key]) {
-                holidays.push(`🇪🇸 ${spainHolidays[key]}`);
-            }
-            if (italyHolidays[key]) {
-                holidays.push(`🇮🇹 ${italyHolidays[key]}`);
+            const isSpain = !!spainHolidays[key];
+            const isItaly = !!italyHolidays[key];
+            
+            if (isSpain && isItaly) {
+                return '🇪🇸🇮🇹 Festivo ES/IT';
+            } else if (isSpain) {
+                return '🇪🇸 Festivo ES';
+            } else if (isItaly) {
+                return '🇮🇹 Festivo IT';
             }
             
-            return holidays.length > 0 ? holidays.join(' | ') : null;
+            return null;
         }
 
         // ===============================
