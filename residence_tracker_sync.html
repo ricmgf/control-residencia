@@ -1389,33 +1389,31 @@ async function loadDataFromSheets() {
             }
             
             try {
-                console.log('🔄 Sincronizando eventos del calendario...');
-                console.log('📅 Año actual:', currentYear);
-                console.log('👤 Perfil actual:', currentProfile);
+                console.log('🔄 Iniciando sincronización forzada de Calendar...');
                 
                 // Obtener eventos del año actual
                 const timeMin = new Date(currentYear, 0, 1).toISOString();
                 const timeMax = new Date(currentYear, 11, 31, 23, 59, 59).toISOString();
                 
-                console.log('🔍 Buscando eventos entre:', timeMin, 'y', timeMax);
+                console.log(`🔍 Buscando eventos entre ${timeMin} y ${timeMax}`);
                 
                 const response = await fetch(
                     `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`,
                     {
-                        headers: {
-                            'Authorization': `Bearer ${accessToken}`
+                        headers: { 
+                            'Authorization': `Bearer ${accessToken}` 
                         }
                     }
                 );
 
-                console.log('📡 Respuesta del servidor:', response.status, response.statusText);
+                console.log(`📡 Respuesta del servidor: ${response.status} ${response.statusText}`);
 
-                // Manejo moderno de errores 401 - Renovación automática de token
+                // Manejo de error 401 - Token expirado
                 if (response.status === 401) {
-                    console.warn('🔐 Token expirado o inválido (401). Solicitando renovación automática...');
+                    console.warn('🔐 Token expirado (401). Solicitando renovación...');
                     try {
                         tokenClient.requestAccessToken();
-                        console.log('✅ Pop-up de autenticación lanzado. Por favor selecciona tu cuenta.');
+                        console.log('✅ Pop-up de autenticación lanzado.');
                         return;
                     } catch (authError) {
                         console.error('❌ Error al renovar autenticación:', authError);
@@ -1432,75 +1430,80 @@ async function loadDataFromSheets() {
 
                 const result = await response.json();
                 
-                console.log('📊 Total eventos en calendario:', result.items ? result.items.length : 0);
+                if (!result.items || result.items.length === 0) {
+                    console.log('ℹ️ No hay eventos en el calendario para este año');
+                    return;
+                }
+                
+                console.log(`📅 Analizando ${result.items.length} eventos...`);
+                console.log('📋 Keywords configuradas:', CALENDAR_KEYWORDS);
                 
                 let eventsImported = 0;
                 
-                if (result.items && result.items.length > 0) {
-                    console.log('📋 Keywords configuradas:', CALENDAR_KEYWORDS);
+                result.items.forEach(event => {
+                    const summary = (event.summary || '').trim();
+                    const summaryLower = summary.toLowerCase();
+                    const description = (event.description || '').toLowerCase();
+                    const location = (event.location || '').toLowerCase();
                     
-                    result.items.forEach(event => {
-                        const summary = (event.summary || '').toLowerCase();
-                        const description = (event.description || '').toLowerCase();
-                        const location = (event.location || '').toLowerCase();
-                        
-                        // Buscar en título, descripción y ubicación (case-insensitive)
-                        const combinedText = `${summary} ${description} ${location}`;
-                        
-                        // Buscar palabras clave
-                        const matchedKeyword = CALENDAR_KEYWORDS.find(keyword => 
-                            combinedText.includes(keyword.toLowerCase())
-                        );
-                        
-                        if (matchedKeyword && event.start) {
-                            const eventDate = event.start.date || event.start.dateTime.split('T')[0];
-                            
-                            // CAPTURA DE TEXTO COMPLETO DEL TÍTULO
-                            const eventTitle = event.summary || matchedKeyword;
-                            
-                            console.log(`✅ Evento encontrado: "${eventTitle}" (${eventDate})`);
-                            
-                            // REGLA CRÍTICA: NO modificar location, solo añadir note
-                            if (data[currentProfile][eventDate]) {
-                                const currentNote = data[currentProfile][eventDate].note || '';
-                                // Solo añadir si no está ya
-                                if (!currentNote.includes(eventTitle)) {
-                                    data[currentProfile][eventDate].note = 
-                                        currentNote ? `${currentNote}
-${eventTitle}` : eventTitle;
-                                    eventsImported++;
-                                }
-                                // Respetar location existente - NO tocar
-                            } else {
-                                // Nueva entrada: sin color (location: null), solo texto
-                                data[currentProfile][eventDate] = {
-                                    location: null,
-                                    note: eventTitle
-                                };
-                                eventsImported++;
-                            }
+                    // Buscar en título, descripción y ubicación
+                    const combinedText = `${summaryLower} ${description} ${location}`;
+                    
+                    // Comprobamos si alguna keyword está en el evento
+                    const hasKeyword = CALENDAR_KEYWORDS.some(kw => 
+                        combinedText.includes(kw.toLowerCase().trim())
+                    );
+                    
+                    if (hasKeyword && event.start) {
+                        // Manejar correctamente fechas de eventos de todo el día vs con hora
+                        let eventDate;
+                        if (event.start.date) {
+                            // Evento de TODO EL DÍA (formato: YYYY-MM-DD)
+                            eventDate = event.start.date;
+                        } else if (event.start.dateTime) {
+                            // Evento con HORA específica
+                            eventDate = event.start.dateTime.split('T')[0];
+                        } else {
+                            console.warn('⚠️ Evento sin fecha válida:', summary);
+                            return;
                         }
-                    });
-                    
-                    console.log(`📊 Total eventos importados: ${eventsImported}`);
-                    
-                    if (eventsImported > 0) {
-                        lastCalendarSync = new Date();
-                        // Guardar cambios en Sheet
-                        await saveDataToSheets();
-                        renderCalendar();
-                        updateSummary();
-                        console.log('💾 Cambios guardados y calendario actualizado');
-                    } else {
-                        console.log('ℹ️ No se encontraron eventos con las palabras clave configuradas');
+                        
+                        // LOG DE DIAGNÓSTICO
+                        console.log(`📝 Evento procesado: "${summary}" para la fecha: ${eventDate}`);
+                        
+                        // Inicializar si no existe
+                        if (!data[currentProfile][eventDate]) {
+                            data[currentProfile][eventDate] = { location: null, note: '' };
+                        }
+                        
+                        // Evitar duplicar la nota si ya existe
+                        const currentNote = data[currentProfile][eventDate].note || '';
+                        const currentNoteLower = currentNote.toLowerCase();
+                        
+                        if (!currentNoteLower.includes(summaryLower)) {
+                            data[currentProfile][eventDate].note = (currentNote ? currentNote + '\\n' + summary : summary).trim();
+                            eventsImported++;
+                            console.log(`✅ ¡IMPORTADO!: "${summary}" el día ${eventDate}`);
+                        } else {
+                            console.log(`⏭️  Omitido (ya existe): "${summary}" en ${eventDate}`);
+                        }
                     }
+                });
+                
+                if (eventsImported > 0) {
+                    console.log(`✅ ¡ÉXITO! ${eventsImported} evento(s) nuevo(s) importado(s) desde Calendar`);
+                    lastCalendarSync = new Date();
+                    renderCalendar();
+                    updateSummary();
+                    await saveDataToSheets(); // Guardar automáticamente
+                    console.log('💾 Cambios guardados en Sheets');
                 } else {
-                    console.log('ℹ️ No hay eventos en el calendario para este año');
+                    console.log('ℹ️ No se encontraron eventos nuevos (ya existen o no coinciden con keywords).');
                 }
                 
-            } catch (error) {
-                console.error('❌ Error al sincronizar Calendar:', error);
-                console.error('Stack:', error.stack);
+            } catch (e) {
+                console.error("❌ Error técnico en Calendar:", e);
+                console.error("Stack:", e.stack);
             }
         }
 
