@@ -13,14 +13,34 @@
             --border-color: #dddfe2;
             --primary-color: #1877f2;
         }
+
         body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; color: var(--text-color); }
+
+        /* RESTAURADA TU INTERFAZ ORIGINAL STICKY */
         .legend {
-            position: sticky; top: 10px; z-index: 1000; background: var(--card-bg);
-            padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;
+            position: -webkit-sticky;
+            position: sticky;
+            top: 10px;
+            z-index: 1000;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
         }
-        .color-option { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform 0.2s; }
+        
+        .color-option { 
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer; 
+            border: 3px solid transparent; transition: transform 0.2s;
+        }
         .color-option.selected { border-color: var(--primary-color); transform: scale(1.1); }
+
+        /* CALENDARIO ORIGINAL */
         .calendar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
         .month-card { background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
         .month-name { font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: capitalize; }
@@ -29,30 +49,31 @@
         .day { padding: 8px; border-radius: 4px; cursor: pointer; font-size: 14px; position: relative; min-height: 25px; }
         .day:hover { background-color: #f2f3f5; }
         .day.other-month { color: #ccd0d5; cursor: default; }
+        
         .summary-container { margin-top: 30px; background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
-        #syncStatus { font-size: 13px; font-weight: bold; color: #d63031; text-align: center; margin-bottom: 10px; padding: 8px; border: 1px solid #fab1a0; border-radius: 4px; }
+        #syncStatus { font-size: 12px; color: #666; text-align: center; margin-bottom: 10px; font-weight: bold; }
         .btn { padding: 8px 16px; border-radius: 6px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="syncStatus">⏳ Esperando respuesta de Google...</div>
+    <div id="syncStatus">Esperando conexión...</div>
 
     <div class="legend" id="colorSelector">
-        <div class="color-option" style="background:#ffcccb" onclick="selectColor('#ffcccb')" title="España"></div>
-        <div class="color-option" style="background:#add8e6" onclick="selectColor('#add8e6')" title="Italia"></div>
-        <div class="color-option" style="background:#90ee90" onclick="selectColor('#90ee90')" title="Francia"></div>
-        <div class="color-option" style="background:#ffffcc" onclick="selectColor('#ffffcc')" title="Andorra"></div>
-        <div class="color-option" style="background:#e6e6e6" onclick="selectColor('#e6e6e6')" title="Otros"></div>
-        <button class="btn" onclick="saveData()">💾 Guardar Local</button>
-        <button class="btn" id="authBtn" style="background:#4285F4" onclick="handleAuthClick()">🔑 Conectar Google</button>
+        <div class="color-option" style="background:#ffcccb" onclick="selectColor('#ffcccb')" id="col-ES" title="España"></div>
+        <div class="color-option" style="background:#add8e6" onclick="selectColor('#add8e6')" id="col-IT" title="Italia"></div>
+        <div class="color-option" style="background:#90ee90" onclick="selectColor('#90ee90')" id="col-FR" title="Francia"></div>
+        <div class="color-option" style="background:#ffffcc" onclick="selectColor('#ffffcc')" id="col-AND" title="Andorra"></div>
+        <div class="color-option" style="background:#e6e6e6" onclick="selectColor('#e6e6e6')" id="col-Other" title="Otros"></div>
+        <button class="btn" onclick="saveData()">💾 Guardar</button>
+        <button class="btn" style="background:#65676b" id="authBtn" onclick="handleAuthClick()">🔑 Re-conectar Google</button>
     </div>
 
     <div id="calendars" class="calendar-grid"></div>
 
     <div class="summary-container" id="summary">
         <h3>Resumen Residencia 2026</h3>
-        <div id="summaryContent">Iniciando...</div>
+        <div id="summaryContent"></div>
     </div>
 
     <script>
@@ -65,66 +86,45 @@
         let selectedColor = '#ffcccb';
         let tripData = JSON.parse(localStorage.getItem('travelData2026')) || {};
 
-        // Inyectamos los scripts de Google dinámicamente para saltar restricciones
+        // INYECCIÓN DINÁMICA PARA MANTENER LA CONEXIÓN QUE YA FUNCIONA
         function loadScripts() {
-            const script1 = document.createElement('script');
-            script1.src = "https://apis.google.com/js/api.js";
-            script1.onload = gapiLoaded;
-            document.head.appendChild(script1);
-
-            const script2 = document.createElement('script');
-            script2.src = "https://accounts.google.com/gsi/client";
-            script2.onload = gsiLoaded;
-            document.head.appendChild(script2);
+            const s1 = document.createElement('script'); s1.src = "https://apis.google.com/js/api.js"; s1.onload = gapiLoaded; document.head.appendChild(s1);
+            const s2 = document.createElement('script'); s2.src = "https://accounts.google.com/gsi/client"; s2.onload = gsiLoaded; document.head.appendChild(s2);
         }
 
         function gapiLoaded() {
             gapi.load('client', async () => {
-                await gapi.client.init({
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
-                });
-                gapiInited = true;
-                checkStatus();
+                await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] });
+                gapiInited = true; checkReady();
             });
         }
 
         function gsiLoaded() {
             tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse.error) return;
+                client_id: CLIENT_ID, scope: SCOPES,
+                callback: (resp) => {
+                    if (resp.error) return;
                     document.getElementById('syncStatus').innerText = "✅ Google Sincronizado";
                     document.getElementById('syncStatus').style.color = "green";
-                    document.getElementById('syncStatus').style.borderColor = "green";
-                },
+                    fetchEvents(); // Intentar traer datos tras conectar
+                }
             });
-            gsiInited = true;
-            checkStatus();
+            gsiInited = true; checkReady();
         }
 
-        function checkStatus() {
-            if (gapiInited && gsiInited) {
-                document.getElementById('syncStatus').innerText = "🟢 Sistema Listo";
-                document.getElementById('syncStatus').style.color = "#2d3436";
-                document.getElementById('syncStatus').style.borderColor = "#dfe6e9";
-            }
+        function checkReady() {
+            if (gapiInited && gsiInited) document.getElementById('syncStatus').innerText = "Listo para sincronizar";
         }
 
         function handleAuthClick() {
-            if (!tokenClient) {
-                alert("Google sigue cargando. Si tarda mucho, revisa si tienes un bloqueador de anuncios activo.");
-                return;
-            }
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
-        // --- CALENDARIO ---
+        // --- LÓGICA DE CALENDARIO RESTAURADA ---
         function selectColor(color) {
             selectedColor = color;
             document.querySelectorAll('.color-option').forEach(opt => {
-                const isThis = opt.style.backgroundColor.replace(/\s/g, '') === color.toLowerCase();
-                opt.classList.toggle('selected', isThis);
+                opt.classList.toggle('selected', opt.style.backgroundColor.replace(/\s/g, '') === color.toLowerCase());
             });
         }
 
@@ -140,7 +140,7 @@
                 daysGrid.className = 'days-grid';
                 ['L','M','X','J','V','S','D'].forEach(d => daysGrid.innerHTML += `<div class="day-name">${d}</div>`);
                 const firstDay = new Date(year, monthIdx, 1).getDay();
-                const adjFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+                const adjFirstDay = (firstDay === 0) ? 6 : firstDay - 1;
                 const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
                 for (let i = 0; i < adjFirstDay; i++) daysGrid.innerHTML += `<div class="day other-month"></div>`;
                 for (let d = 1; d <= daysInMonth; d++) {
@@ -150,9 +150,8 @@
                     dayDiv.innerText = d;
                     if (tripData[dateKey]) dayDiv.style.backgroundColor = tripData[dateKey];
                     dayDiv.onclick = () => {
-                        dayDiv.style.backgroundColor = dayDiv.style.backgroundColor ? '' : selectedColor;
-                        if (dayDiv.style.backgroundColor) tripData[dateKey] = selectedColor;
-                        else delete tripData[dateKey];
+                        if (dayDiv.style.backgroundColor) { dayDiv.style.backgroundColor = ''; delete tripData[dateKey]; }
+                        else { dayDiv.style.backgroundColor = selectedColor; tripData[dateKey] = selectedColor; }
                         updateSummary();
                     };
                     daysGrid.appendChild(dayDiv);
@@ -177,13 +176,19 @@
 
         function saveData() {
             localStorage.setItem('travelData2026', JSON.stringify(tripData));
-            alert("¡Guardado localmente!");
+            alert("Guardado localmente.");
+        }
+
+        // FUNCIÓN PARA TRAER EVENTOS (POR QUÉ NO VES DATOS)
+        // Por ahora esta función está vacía porque Google Calendar no sabe qué color asignar a tus eventos.
+        function fetchEvents() {
+            console.log("Conectado, pero falta mapear colores de Calendar a la App.");
         }
 
         window.onload = () => {
             renderYear(2026);
             selectColor('#ffcccb');
-            loadScripts(); // Carga manual al final
+            loadScripts();
         };
     </script>
 </body>
