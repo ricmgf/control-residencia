@@ -55,4 +55,173 @@
 </head>
 <body>
 
-    <div id="syncStatus">Cargando sistemas de Google...
+    <div id="syncStatus">Iniciando sistemas de seguridad...</div>
+
+    <div class="legend" id="colorSelector">
+        <div class="color-option" style="background:#ffcccb" onclick="selectColor('#ffcccb')" title="España"></div>
+        <div class="color-option" style="background:#add8e6" onclick="selectColor('#add8e6')" title="Italia"></div>
+        <div class="color-option" style="background:#90ee90" onclick="selectColor('#90ee90')" title="Francia"></div>
+        <div class="color-option" style="background:#ffffcc" onclick="selectColor('#ffffcc')" title="Andorra"></div>
+        <div class="color-option" style="background:#e6e6e6" onclick="selectColor('#e6e6e6')" title="Otros"></div>
+        <button class="btn" onclick="saveData()">💾 Guardar Local</button>
+        <button class="btn" id="authBtn" style="background:#4285F4" onclick="handleAuthClick()">🔑 Conectar Google</button>
+    </div>
+
+    <div id="calendars" class="calendar-grid"></div>
+
+    <div class="summary-container" id="summary">
+        <h3>Resumen Residencia 2026</h3>
+        <div id="summaryContent">Cargando resumen...</div>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+
+    <script>
+        const CLIENT_ID = '62569860135-87ahagt2aflno2e0o022l44iovnk2de4.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/calendar.events.readonly';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gsiInited = false;
+        let selectedColor = '#ffcccb';
+        let tripData = JSON.parse(localStorage.getItem('travelData2026')) || {};
+
+        // Función que intenta conectar con Google repetidamente hasta que los scripts cargan
+        function initGoogleCheck() {
+            // 1. Intentar inicializar GAPI (API de Calendario)
+            if (typeof gapi !== 'undefined' && !gapiInited) {
+                gapi.load('client', async () => {
+                    try {
+                        await gapi.client.init({
+                            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
+                        });
+                        gapiInited = true;
+                        updateSyncUI();
+                    } catch (e) { console.error("Error GAPI:", e); }
+                });
+            }
+
+            // 2. Intentar inicializar GSI (Login)
+            if (typeof google !== 'undefined' && google.accounts && !gsiInited) {
+                try {
+                    tokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: CLIENT_ID,
+                        scope: SCOPES,
+                        callback: (tokenResponse) => {
+                            if (tokenResponse.error) {
+                                console.error("Error en Login:", tokenResponse.error);
+                                return;
+                            }
+                            document.getElementById('syncStatus').innerText = "✅ Google Conectado";
+                            document.getElementById('syncStatus').style.color = "green";
+                            document.getElementById('authBtn').innerText = "🔄 Sincronizado";
+                        },
+                    });
+                    gsiInited = true;
+                    updateSyncUI();
+                } catch (e) { console.error("Error GSI:", e); }
+            }
+        }
+
+        function updateSyncUI() {
+            if (gapiInited && gsiInited) {
+                document.getElementById('syncStatus').innerText = "Listo para sincronizar";
+                document.getElementById('syncStatus').style.color = "#666";
+            }
+        }
+
+        function handleAuthClick() {
+            if (!gsiInited || !tokenClient) {
+                alert("Google aún está cargando. Por favor, espera 2 segundos y vuelve a intentarlo.");
+                return;
+            }
+            // Esto lanza el pop-up forzado
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        }
+
+        // --- LÓGICA DE CALENDARIO ---
+        function selectColor(color) {
+            selectedColor = color;
+            document.querySelectorAll('.color-option').forEach(opt => {
+                const isThis = opt.style.backgroundColor.replace(/\s/g, '') === color.toLowerCase();
+                opt.classList.toggle('selected', isThis);
+            });
+        }
+
+        function renderYear(year) {
+            const container = document.getElementById('calendars');
+            container.innerHTML = '';
+            const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+            months.forEach((monthName, monthIdx) => {
+                const card = document.createElement('div');
+                card.className = 'month-card';
+                card.innerHTML = `<div class="month-name">${monthName} ${year}</div>`;
+                
+                const daysGrid = document.createElement('div');
+                daysGrid.className = 'days-grid';
+                ['L','M','X','J','V','S','D'].forEach(d => daysGrid.innerHTML += `<div class="day-name">${d}</div>`);
+
+                const firstDay = new Date(year, monthIdx, 1).getDay();
+                const adjFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+                const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+
+                for (let i = 0; i < adjFirstDay; i++) daysGrid.innerHTML += `<div class="day other-month"></div>`;
+
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateKey = `${year}-${String(monthIdx+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'day';
+                    dayDiv.innerText = d;
+                    if (tripData[dateKey]) dayDiv.style.backgroundColor = tripData[dateKey];
+                    
+                    dayDiv.onclick = () => {
+                        if (dayDiv.style.backgroundColor) {
+                            dayDiv.style.backgroundColor = '';
+                            delete tripData[dateKey];
+                        } else {
+                            dayDiv.style.backgroundColor = selectedColor;
+                            tripData[dateKey] = selectedColor;
+                        }
+                        updateSummary();
+                    };
+                    daysGrid.appendChild(dayDiv);
+                }
+                card.appendChild(daysGrid);
+                container.appendChild(card);
+            });
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const counts = {};
+            Object.values(tripData).forEach(color => {
+                // Normalizar color para el conteo
+                const c = color.toLowerCase().replace(/\s/g, '');
+                counts[c] = (counts[c] || 0) + 1;
+            });
+            
+            const mapping = { '#ffcccb': 'España', '#add8e6': 'Italia', '#90ee90': 'Francia', '#ffffcc': 'Andorra', '#e6e6e6': 'Otros' };
+            let html = '<ul>';
+            for (const [color, name] of Object.entries(mapping)) {
+                html += `<li><strong>${name}:</strong> ${counts[color.toLowerCase()] || 0} días</li>`;
+            }
+            html += '</ul>';
+            document.getElementById('summaryContent').innerHTML = html;
+        }
+
+        function saveData() {
+            localStorage.setItem('travelData2026', JSON.stringify(tripData));
+            alert("¡Datos guardados localmente en este navegador!");
+        }
+
+        window.onload = () => {
+            renderYear(2026);
+            selectColor('#ffcccb');
+            // Revisar cada segundo si los scripts de Google ya están listos
+            setInterval(initGoogleCheck, 1000);
+        };
+    </script>
+</body>
+</html>
