@@ -16,7 +16,7 @@
 
         body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; color: var(--text-color); }
 
-        /* INTERFAZ STICKY ORIGINAL RE-ESTABLECIDA */
+        /* Selector Sticky ORIGINAL */
         .legend {
             position: -webkit-sticky;
             position: sticky;
@@ -40,7 +40,7 @@
         }
         .color-option.selected { border-color: var(--primary-color); transform: scale(1.1); }
 
-        /* CALENDARIO ORIGINAL */
+        /* Calendario ORIGINAL */
         .calendar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
         .month-card { background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
         .month-name { font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: capitalize; }
@@ -86,30 +86,32 @@
         let selectedColor = '#ffcccb';
         let tripData = JSON.parse(localStorage.getItem('travelData2026')) || {};
 
-        function loadScripts() {
-            const s1 = document.createElement('script'); s1.src = "https://apis.google.com/js/api.js"; s1.onload = gapiLoaded; document.head.appendChild(s1);
-            const s2 = document.createElement('script'); s2.src = "https://accounts.google.com/gsi/client"; s2.onload = gsiLoaded; document.head.appendChild(s2);
+        // Esta función carga Google de forma segura para GitHub Pages
+        function loadGoogle() {
+            const s1 = document.createElement('script'); s1.src = "https://apis.google.com/js/api.js"; s1.onload = () => {
+                gapi.load('client', async () => {
+                    await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] });
+                    gapiInited = true; checkStatus();
+                });
+            };
+            document.head.appendChild(s1);
+
+            const s2 = document.createElement('script'); s2.src = "https://accounts.google.com/gsi/client"; s2.onload = () => {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: CLIENT_ID, scope: SCOPES,
+                    callback: (resp) => {
+                        if (resp.error) return;
+                        document.getElementById('syncStatus').innerText = "✅ Google Conectado";
+                        document.getElementById('syncStatus').style.color = "green";
+                    }
+                });
+                gsiInited = true; checkStatus();
+            };
+            document.head.appendChild(s2);
         }
 
-        function gapiLoaded() {
-            gapi.load('client', async () => {
-                await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] });
-                gapiInited = true;
-                if (gsiInited) document.getElementById('syncStatus').innerText = "Listo para conectar";
-            });
-        }
-
-        function gsiLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID, scope: SCOPES,
-                callback: (resp) => {
-                    if (resp.error) return;
-                    document.getElementById('syncStatus').innerText = "✅ Google Conectado";
-                    document.getElementById('syncStatus').style.color = "green";
-                }
-            });
-            gsiInited = true;
-            if (gapiInited) document.getElementById('syncStatus').innerText = "Listo para conectar";
+        function checkStatus() {
+            if (gapiInited && gsiInited) document.getElementById('syncStatus').innerText = "Listo para sincronizar";
         }
 
         function handleAuthClick() {
@@ -119,7 +121,8 @@
         function selectColor(color) {
             selectedColor = color;
             document.querySelectorAll('.color-option').forEach(opt => {
-                opt.classList.toggle('selected', opt.style.backgroundColor.replace(/\s/g, '') === color.toLowerCase());
+                const c = opt.style.backgroundColor.replace(/\s/g, '').toLowerCase();
+                opt.classList.toggle('selected', c === color.toLowerCase());
             });
         }
 
@@ -171,13 +174,13 @@
 
         function saveData() {
             localStorage.setItem('travelData2026', JSON.stringify(tripData));
-            alert("¡Guardado!");
+            alert("Guardado localmente.");
         }
 
         window.onload = () => {
             renderYear(2026);
             selectColor('#ffcccb');
-            loadScripts();
+            loadGoogle();
         };
     </script>
 </body>
