@@ -316,7 +316,7 @@
             transition: all 0.2s;
             position: relative;
             padding: 4px 2px;
-            min-height: 90px;
+            min-height: 55px;
         }
 
         .day-cell:hover {
@@ -337,37 +337,33 @@
         }
 
         .day-note {
-            font-size: 0.6em;
+            font-size: 0.55em;
             color: #333;
             text-align: center;
-            line-height: 1.4;
-            max-height: 35px;
+            line-height: 1.1;
+            max-height: 16px;
             overflow: hidden;
+            text-overflow: ellipsis;
             font-weight: 700;
-            margin-top: 2px;
+            margin-top: auto;
             padding-top: 1px;
             word-break: break-word;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
         }
 
         .holiday-note {
-            font-size: 0.6em;
+            font-size: 0.55em;
             color: #c62828;
             background: rgba(198, 40, 40, 0.08);
             text-align: center;
-            line-height: 1.4;
+            line-height: 1.1;
             font-weight: 700;
             margin-top: 2px;
             padding: 2px 3px;
             border-radius: 3px;
-            max-height: 35px;
+            max-height: 18px;
             overflow: hidden;
+            text-overflow: ellipsis;
             word-break: break-word;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
         }
 
         .edit-icon {
@@ -657,7 +653,7 @@
             }
 
             .day-cell {
-                min-height: 90px;
+                min-height: 50px;
                 padding: 3px;
             }
 
@@ -666,8 +662,8 @@
             }
 
             .day-note, .holiday-note {
-                font-size: 0.6em;
-                max-height: 35px;
+                font-size: 0.55em;
+                max-height: 18px;
             }
 
             .summary-card {
@@ -719,7 +715,7 @@
             }
 
             .day-cell {
-                min-height: 90px;
+                min-height: 65px;
             }
         }
 
@@ -762,7 +758,7 @@
 
             .legend {
                 gap: 15px;
-                /* NO cambiar a grid, mantener flex para sticky */
+                /* Mantener flex para sticky */
             }
 
             .legend-item {
@@ -775,7 +771,7 @@
             }
 
             .day-cell {
-                min-height: 90px;
+                min-height: 70px;
                 padding: 5px;
                 border-radius: 8px;
             }
@@ -785,13 +781,13 @@
             }
 
             .day-note {
-                font-size: 0.7em;
-                max-height: 35px;
+                font-size: 0.65em;
+                max-height: 24px;
             }
 
             .holiday-note {
-                font-size: 0.7em;
-                max-height: 35px;
+                font-size: 0.6em;
+                max-height: 20px;
             }
 
             .edit-icon {
@@ -865,7 +861,7 @@
             }
 
             .day-cell {
-                min-height: 90px;
+                min-height: 45px;
             }
 
             .calendar-grid {
@@ -1015,11 +1011,6 @@
     </style>
 </head>
 <body>
-    <!-- Indicador de Sticky -->
-    <div style="position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; border-radius: 5px; font-weight: bold; z-index: 9999; font-size: 12px;" id="stickyIndicator">
-        ❌ Sticky NO activo
-    </div>
-    
     <div class="login-overlay" id="loginOverlay">
         <div class="login-box">
             <h2>🔐 Iniciar Sesión</h2>
@@ -1046,8 +1037,8 @@
             </div>
             <div class="sync-timestamp" id="syncTimestamp"></div>
             <div class="profile-selector">
-                <button class="profile-btn active" onclick="switchProfile('RG')">Ricardo</button>
-                <button class="profile-btn" onclick="switchProfile('SB')">Sylvia</button>
+                <button class="profile-btn active" onclick="switchProfile('Ricardo')">Ricardo</button>
+                <button class="profile-btn" onclick="switchProfile('Sylvia')">Sylvia</button>
             </div>
         </div>
 
@@ -1114,7 +1105,7 @@
 
     <input type="file" id="fileInput" style="display:none" accept=".json" onchange="handleFileImport(event)">
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleAuth()"></script>
     <script>
         const LOCATIONS = {
             MAD: { name: 'Madrid', color: '#FFEB3B', emoji: '🟡' },
@@ -1143,16 +1134,17 @@
         ];
 
         let currentYear = 2026;
-        let currentProfile = 'RG';
+        let currentProfile = 'Ricardo';
         let selectedLocation = 'MAD';
         let currentEditDay = null;
         let tokenClient;
         let accessToken = null;
         let lastCalendarSync = null;
+        let lastServerTimestamp = 0; // Timestamp del servidor para control anti-sobrescritura
 
         let data = {
-            RG: {},
-            SB: {}
+            Ricardo: {},
+            Sylvia: {}
         };
 
         // Calcular festivos
@@ -1261,16 +1253,86 @@
             }
 
             accessToken = response.access_token;
-            document.getElementById('loginOverlay').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
             
+            // PRIORIDAD: Sincronizar Calendar primero (independiente de Sheets)
+            syncCalendarEvents().catch(err => {
+                console.error('⚠️ Error en sincronización de Calendar (no crítico):', err);
+            });
+            
+            // Luego cargar datos de Sheets
             loadDataFromSheets();
         }
 
-        async function loadDataFromSheets() {
+        // ===============================
+        // PROTECCIÓN ANTI-SOBRESCRITURA
+        // ===============================
+        
+        async function readServerTimestamp() {
+            if (!accessToken) return 0;
+            
+            try {
+                const response = await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!Z1`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    console.warn('⚠️ No se pudo leer timestamp de Z1');
+                    return 0;
+                }
+
+                const result = await response.json();
+                const timestamp = result.values && result.values[0] && result.values[0][0];
+                const ts = parseInt(timestamp) || 0;
+                console.log(`📥 Timestamp del servidor leído: ${ts > 0 ? new Date(ts).toLocaleString('es-ES') : 'Sin timestamp'}`);
+                return ts;
+            } catch (error) {
+                console.error('❌ Error al leer timestamp:', error);
+                return 0;
+            }
+        }
+
+        async function updateServerTimestamp() {
+            if (!accessToken) return false;
+            
+            const newTimestamp = Date.now();
+            
+            try {
+                await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!Z1?valueInputOption=RAW`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            values: [[newTimestamp]]
+                        })
+                    }
+                );
+                
+                lastServerTimestamp = newTimestamp;
+                console.log(`⏰ Timestamp actualizado en Z1: ${new Date(newTimestamp).toLocaleString('es-ES')}`);
+                return true;
+            } catch (error) {
+                console.error('❌ Error al actualizar timestamp:', error);
+                return false;
+            }
+        }
+
+async function loadDataFromSheets() {
             updateSyncStatus('syncing', 'Cargando datos...');
             
             try {
+                // LEER TIMESTAMP DEL SERVIDOR PRIMERO
+                lastServerTimestamp = await readServerTimestamp();
+                console.log(`🔒 Timestamp local guardado: ${lastServerTimestamp}`);
+                
                 // Cargar datos de Google Sheets
                 const response = await fetch(
                     `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:D`,
@@ -1284,7 +1346,7 @@
                 const result = await response.json();
                 
                 // Convertir datos de Sheet a formato interno
-                data = { RG: {}, SB: {} };
+                data = { Ricardo: {}, Sylvia: {} };
                 
                 if (result.values && result.values.length > 0) {
                     result.values.forEach(row => {
@@ -1304,6 +1366,9 @@
                 
                 renderCalendar();
                 updateSummary();
+                
+                // ACTUALIZAR TIMESTAMP TRAS GUARDADO EXITOSO
+                await updateServerTimestamp();
                 updateSyncStatus('synced', 'Sincronizado');
                 
                 // Sincronizar cada 30 segundos
@@ -1318,14 +1383,21 @@
         }
 
         async function syncCalendarEvents() {
-            if (!accessToken) return;
+            if (!accessToken) {
+                console.log('⚠️ No hay accessToken - necesitas autenticarte');
+                return;
+            }
             
             try {
                 console.log('🔄 Sincronizando eventos del calendario...');
+                console.log('📅 Año actual:', currentYear);
+                console.log('👤 Perfil actual:', currentProfile);
                 
                 // Obtener eventos del año actual
                 const timeMin = new Date(currentYear, 0, 1).toISOString();
                 const timeMax = new Date(currentYear, 11, 31, 23, 59, 59).toISOString();
+                
+                console.log('🔍 Buscando eventos entre:', timeMin, 'y', timeMax);
                 
                 const response = await fetch(
                     `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true`,
@@ -1336,16 +1408,36 @@
                     }
                 );
 
+                console.log('📡 Respuesta del servidor:', response.status, response.statusText);
+
+                // Manejo moderno de errores 401 - Renovación automática de token
+                if (response.status === 401) {
+                    console.warn('🔐 Token expirado o inválido (401). Solicitando renovación automática...');
+                    try {
+                        tokenClient.requestAccessToken();
+                        console.log('✅ Pop-up de autenticación lanzado. Por favor selecciona tu cuenta.');
+                        return;
+                    } catch (authError) {
+                        console.error('❌ Error al renovar autenticación:', authError);
+                        alert('Tu sesión ha expirado. Por favor, vuelve a conectar con Google.');
+                        return;
+                    }
+                }
+
                 if (!response.ok) {
-                    console.error('❌ Error al obtener eventos del calendario:', response.status, response.statusText);
+                    const errorText = await response.text();
+                    console.error('❌ Error al obtener eventos:', response.status, errorText);
                     return;
                 }
 
                 const result = await response.json();
+                
+                console.log('📊 Total eventos en calendario:', result.items ? result.items.length : 0);
+                
                 let eventsImported = 0;
                 
-                if (result.items) {
-                    console.log(`📅 ${result.items.length} eventos encontrados en el calendario`);
+                if (result.items && result.items.length > 0) {
+                    console.log('📋 Keywords configuradas:', CALENDAR_KEYWORDS);
                     
                     result.items.forEach(event => {
                         const summary = (event.summary || '').toLowerCase();
@@ -1363,21 +1455,27 @@
                         if (matchedKeyword && event.start) {
                             const eventDate = event.start.date || event.start.dateTime.split('T')[0];
                             
-                            console.log(`✅ Evento encontrado: "${event.summary}" (${eventDate}) → Keyword: "${matchedKeyword}"`);
+                            // CAPTURA DE TEXTO COMPLETO DEL TÍTULO
+                            const eventTitle = event.summary || matchedKeyword;
                             
-                            // Añadir al perfil actual si no existe ya
+                            console.log(`✅ Evento encontrado: "${eventTitle}" (${eventDate})`);
+                            
+                            // REGLA CRÍTICA: NO modificar location, solo añadir note
                             if (data[currentProfile][eventDate]) {
                                 const currentNote = data[currentProfile][eventDate].note || '';
-                                // Solo añadir si no está ya en las notas
-                                if (!currentNote.includes(matchedKeyword)) {
+                                // Solo añadir si no está ya
+                                if (!currentNote.includes(eventTitle)) {
                                     data[currentProfile][eventDate].note = 
-                                        currentNote ? `${currentNote}\n${matchedKeyword}` : matchedKeyword;
+                                        currentNote ? `${currentNote}
+${eventTitle}` : eventTitle;
                                     eventsImported++;
                                 }
+                                // Respetar location existente - NO tocar
                             } else {
+                                // Nueva entrada: sin color (location: null), solo texto
                                 data[currentProfile][eventDate] = {
                                     location: null,
-                                    note: matchedKeyword
+                                    note: eventTitle
                                 };
                                 eventsImported++;
                             }
@@ -1392,14 +1490,17 @@
                         await saveDataToSheets();
                         renderCalendar();
                         updateSummary();
+                        console.log('💾 Cambios guardados y calendario actualizado');
                     } else {
                         console.log('ℹ️ No se encontraron eventos con las palabras clave configuradas');
-                        console.log('📋 Keywords configuradas:', CALENDAR_KEYWORDS);
                     }
+                } else {
+                    console.log('ℹ️ No hay eventos en el calendario para este año');
                 }
                 
             } catch (error) {
                 console.error('❌ Error al sincronizar Calendar:', error);
+                console.error('Stack:', error.stack);
             }
         }
 
@@ -1407,6 +1508,48 @@
             updateSyncStatus('syncing', 'Guardando...');
             
             try {
+                // =====================================================
+                // PROTECCIÓN ANTI-SOBRESCRITURA: Verificar timestamp
+                // =====================================================
+                console.log('🔍 Verificando timestamp del servidor antes de guardar...');
+                const currentServerTimestamp = await readServerTimestamp();
+                
+                if (currentServerTimestamp > lastServerTimestamp) {
+                    // HAY DATOS MÁS RECIENTES EN EL SERVIDOR
+                    const serverDate = new Date(currentServerTimestamp).toLocaleString('es-ES');
+                    const localDate = new Date(lastServerTimestamp).toLocaleString('es-ES');
+                    
+                    console.error('⚠️ CONFLICTO DETECTADO:');
+                    console.error(`   Servidor: ${serverDate}`);
+                    console.error(`   Local:    ${localDate}`);
+                    
+                    updateSyncStatus('error', '⚠️ Datos más recientes en servidor');
+                    
+                    const message = 
+                        '⚠️ ATENCIÓN: Conflicto de Sincronización\n\n' +
+                        'Hay cambios más recientes en el servidor que no tienes en este dispositivo.\n\n' +
+                        `📅 Servidor: ${serverDate}\n` +
+                        `📱 Tu dispositivo: ${localDate}\n\n` +
+                        '¿Qué deseas hacer?\n\n' +
+                        '✅ CARGAR: Descarga los datos del servidor (recomendado)\n' +
+                        '❌ CANCELAR: No guardar ahora\n\n' +
+                        '⚠️ Si presionas OK, se cargarán los datos del servidor y perderás tus cambios locales no guardados.';
+                    
+                    if (confirm(message)) {
+                        console.log('👤 Usuario eligió cargar datos del servidor');
+                        await loadDataFromSheets();
+                        renderCalendar();
+                        updateSummary();
+                        return; // Salir sin guardar
+                    } else {
+                        console.log('👤 Usuario canceló el guardado');
+                        updateSyncStatus('synced', 'Guardado cancelado');
+                        return; // Salir sin guardar
+                    }
+                }
+                
+                console.log('✅ Timestamp OK - procediendo a guardar');
+                
                 // Convertir datos internos a formato de Sheet
                 const rows = [];
                 
@@ -1421,6 +1564,18 @@
                         ]);
                     });
                 });
+
+                // VALIDACIÓN CRÍTICA: No borrar la base de datos si rows está vacío
+                if (rows.length === 0) {
+                    console.warn('⚠️ ADVERTENCIA: El array de datos está vacío. No se guardará para evitar borrar la base de datos.');
+                    console.warn('   Esto puede indicar un error de carga local.');
+                    updateSyncStatus('error', '⚠️ Datos vacíos - no guardado');
+                    return;
+                }
+                
+                console.log(`💾 Guardando ${rows.length} registros en Sheets...`);
+                
+                
 
                 // Limpiar y escribir todos los datos
                 await fetch(
@@ -1449,6 +1604,9 @@
                     }
                 );
                 
+                // ACTUALIZAR TIMESTAMP TRAS GUARDADO EXITOSO
+                await updateServerTimestamp();
+                
                 updateSyncStatus('synced', 'Sincronizado');
             } catch (error) {
                 console.error('Error al guardar:', error);
@@ -1472,7 +1630,7 @@
                 const result = await response.json();
                 
                 // Convertir y comparar datos
-                const cloudData = { RG: {}, SB: {} };
+                const cloudData = { Ricardo: {}, Sylvia: {} };
                 
                 if (result.values && result.values.length > 0) {
                     result.values.forEach(row => {
@@ -1624,11 +1782,14 @@
                         dayCell.appendChild(holidayNote);
                     }
 
-                    // Nota del usuario
+                    // Nota del usuario con estilo inline específico y tooltip
                     if (dayData.note) {
                         const note = document.createElement('div');
                         note.className = 'day-note';
+                        note.setAttribute('style', 'font-size: 0.6em; line-height: 1.1; margin-top: 2px; text-align: center; word-break: break-word; color: #333; font-weight: 700; max-height: 3em; overflow: hidden; cursor: help;');
                         note.textContent = dayData.note;
+                        // TOOLTIP: Mostrar texto completo al pasar el ratón
+                        note.title = dayData.note;
                         dayCell.appendChild(note);
                     }
 
@@ -1880,33 +2041,7 @@
             }
         });
 
-        // Inicializar cuando se carga Google Identity Services
-        window.onload = function() {
-            initGoogleAuth();
-        };
-        
-        // DETECTOR DE STICKY - Para diagnóstico
-        window.addEventListener('DOMContentLoaded', function() {
-            const legend = document.querySelector('.legend');
-            const indicator = document.getElementById('stickyIndicator');
-            
-            if (legend && indicator) {
-                window.addEventListener('scroll', function() {
-                    const rect = legend.getBoundingClientRect();
-                    // Si está pegado arriba (top cerca de 0), sticky funciona
-                    if (rect.top >= 0 && rect.top <= 5) {
-                        indicator.textContent = '✅ Sticky FUNCIONA';
-                        indicator.style.background = 'green';
-                    } else if (rect.top < 0) {
-                        indicator.textContent = '⬆️ Selector arriba';
-                        indicator.style.background = 'orange';
-                    } else {
-                        indicator.textContent = '❌ Sticky NO activo';
-                        indicator.style.background = 'red';
-                    }
-                });
-            }
-        });
+        // initGoogleAuth se llama automáticamente cuando el script de Google se carga (atributo onload)
     </script>
 </body>
 </html>
