@@ -357,23 +357,22 @@
         }
 
         .holiday-note {
-            font-size: 0.55em;
+            font-size: 0.5em;
             color: #c62828;
             background: rgba(198, 40, 40, 0.08);
             text-align: center;
-            line-height: 1.2;
+            line-height: 1.3;
             font-weight: 700;
             margin-top: 2px;
-            padding: 3px 3px;
+            padding: 4px 2px;
             border-radius: 3px;
-            min-height: 24px;
-            max-height: 32px;
+            min-height: 30px;
+            max-height: 45px;
             overflow: hidden;
-            text-overflow: ellipsis;
             word-break: break-word;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
         }
 
         .edit-icon {
@@ -857,92 +856,103 @@
         /* Extra small phones */
         @media (max-width: 430px) {
             body {
-                padding: 5px;
+                padding: 3px;
             }
             
             .container {
-                border-radius: 10px;
+                border-radius: 8px;
             }
             
             .header {
-                padding: 15px 10px;
+                padding: 12px 8px;
             }
             
             .header h1 {
-                font-size: 1.2em;
+                font-size: 1.1em;
             }
 
             .profile-btn {
-                padding: 6px 12px;
-                font-size: 0.85em;
+                padding: 5px 10px;
+                font-size: 0.8em;
+            }
+            
+            .sync-status {
+                font-size: 0.75em;
+                padding: 6px;
             }
 
             .legend {
-                padding: 10px 5px;
-                gap: 6px;
+                padding: 8px 4px;
+                gap: 5px;
             }
 
             .legend-item {
-                padding: 5px 8px;
-                font-size: 0.8em;
-            }
-
-            .day-cell {
-                min-height: 58px;
-                padding: 3px 1px;
-            }
-
-            .calendar-grid {
-                gap: 2px;
-            }
-            
-            .calendar-month {
-                padding: 8px;
-                margin-bottom: 8px;
-            }
-
-            .floating-counter {
-                min-width: 65px;
-                min-height: 65px;
-                padding: 10px 12px;
-                bottom: 10px;
-                right: 10px;
-            }
-
-            .floating-number {
-                font-size: 1.6em;
-            }
-
-            .floating-label {
-                font-size: 0.65em;
-            }
-
-            .day-number {
+                padding: 4px 7px;
                 font-size: 0.75em;
             }
 
+            .day-cell {
+                min-height: 54px;
+                padding: 2px 1px;
+            }
+
+            .calendar-grid {
+                gap: 1.5px;
+            }
+            
+            .calendar-month {
+                padding: 6px;
+                margin-bottom: 6px;
+            }
+            
+            .month-header {
+                font-size: 0.95em;
+                margin-bottom: 6px;
+            }
+
+            .floating-counter {
+                min-width: 60px;
+                min-height: 60px;
+                padding: 8px 10px;
+                bottom: 8px;
+                right: 8px;
+            }
+
+            .floating-number {
+                font-size: 1.5em;
+            }
+
+            .floating-label {
+                font-size: 0.6em;
+            }
+
+            .day-number {
+                font-size: 0.7em;
+            }
+
             .day-note, .holiday-note {
-                font-size: 0.48em;
-                line-height: 1.15;
+                font-size: 0.45em;
+                line-height: 1.2;
             }
             
             .holiday-note {
-                min-height: 20px;
-                max-height: 28px;
-                padding: 2px;
+                min-height: 26px;
+                max-height: 38px;
+                padding: 3px 2px;
+                font-size: 0.44em;
             }
 
             .breakdown-table th,
             .breakdown-table td {
-                padding: 6px 4px;
-                font-size: 0.85em;
+                padding: 5px 3px;
+                font-size: 0.8em;
             }
             
             .breakdown-table th small {
-                font-size: 0.7em;
+                font-size: 0.65em;
             }
         }
-            }
+
         }
 
         .modal {
