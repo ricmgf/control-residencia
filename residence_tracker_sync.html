@@ -34,6 +34,8 @@
             align-items: center;
         }
         
+        .legend h2 { display: none; } /* Quitamos título para ahorrar espacio */
+
         .color-option { 
             width: 30px; height: 30px; border-radius: 50%; cursor: pointer; 
             border: 3px solid transparent; transition: transform 0.2s;
@@ -46,7 +48,7 @@
         .month-name { font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: capitalize; }
         .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
         .day-name { font-size: 10px; color: #65676b; font-weight: bold; }
-        .day { padding: 8px; border-radius: 4px; cursor: pointer; font-size: 14px; position: relative; min-height: 25px; border: 1px solid transparent; }
+        .day { padding: 8px; border-radius: 4px; cursor: pointer; font-size: 14px; position: relative; min-height: 25px; }
         .day:hover { background-color: #f2f3f5; }
         .day.other-month { color: #ccd0d5; cursor: default; }
         
@@ -66,11 +68,11 @@
     <div id="syncStatus">Esperando conexión...</div>
 
     <div class="legend" id="colorSelector">
-        <div class="color-option" style="background:#ffcccb" onclick="selectColor('#ffcccb')" id="col-ES"></div>
-        <div class="color-option" style="background:#add8e6" onclick="selectColor('#add8e6')" id="col-IT"></div>
-        <div class="color-option" style="background:#90ee90" onclick="selectColor('#90ee90')" id="col-FR"></div>
-        <div class="color-option" style="background:#ffffcc" onclick="selectColor('#ffffcc')" id="col-AND"></div>
-        <div class="color-option" style="background:#e6e6e6" onclick="selectColor('#e6e6e6')" id="col-Other"></div>
+        <div class="color-option" style="background:#ffcccb" onclick="selectColor('#ffcccb')" id="col-ES" title="España"></div>
+        <div class="color-option" style="background:#add8e6" onclick="selectColor('#add8e6')" id="col-IT" title="Italia"></div>
+        <div class="color-option" style="background:#90ee90" onclick="selectColor('#90ee90')" id="col-FR" title="Francia"></div>
+        <div class="color-option" style="background:#ffffcc" onclick="selectColor('#ffffcc')" id="col-AND" title="Andorra"></div>
+        <div class="color-option" style="background:#e6e6e6" onclick="selectColor('#e6e6e6')" id="col-Other" title="Otros"></div>
         <button class="btn" onclick="saveAll()">💾 Guardar</button>
         <button class="btn" style="background:#65676b" onclick="handleAuthClick()">🔑 Re-conectar</button>
     </div>
@@ -86,201 +88,5 @@
     <script src="https://apis.google.com/js/api.js"></script>
 
     <script>
-        const CLIENT_ID = '355755169460-at36k2nd6v400iv6rql6t16mre5f95r5.apps.googleusercontent.com';
-        const SPREADSHEET_ID = '1F5ObeXf_6mD9p059_LgWIDYpByHbeC6mJ9vP5l4GOfc';
-        const KEYWORDS = ["Trimestral", "Lunes Tools", "Lunes Miogest", "Lunes Regold", "Lunes Hcpro", "Lunes Inmovilla", "Offsite", "Estrategia CRM's", "DNs"];
-        const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/calendar.events.readonly';
-
-        let tokenClient;
-        let localVersion = 0;
-        let selectedColor = '#ffcccb';
-        let travelData = {}; 
-        let calendarEvents = {};
-
-        function updateStatus(msg) { document.getElementById('syncStatus').textContent = msg; }
-
-        // INICIALIZACIÓN DE GOOGLE
-        function gapiLoaded() {
-            gapi.load('client', async () => {
-                await gapi.client.init({
-                    discoveryDocs: [
-                        'https://sheets.googleapis.com/$discovery/rest?version=v4',
-                        'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'
-                    ],
-                });
-                updateStatus("API cargada. Inicie sesión.");
-            });
-        }
-
-        function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                prompt: 'select_account consent', // FORZAR PANTALLA DE PERMISOS
-                callback: async (resp) => {
-                    if (resp.error) throw resp;
-                    updateStatus("Conectado con éxito.");
-                    await loadData();
-                    await fetchCalendar();
-                },
-            });
-        }
-
-        function handleAuthClick() {
-            tokenClient.requestAccessToken();
-        }
-
-        // CALENDAR: Búsqueda por palabras clave
-        async function fetchCalendar() {
-            try {
-                updateStatus("Buscando eventos en Calendar...");
-                const response = await gapi.client.calendar.events.list({
-                    'calendarId': 'primary',
-                    'timeMin': (new Date('2026-01-01')).toISOString(),
-                    'timeMax': (new Date('2026-12-31')).toISOString(),
-                    'singleEvents': true
-                });
-                
-                const events = response.result.items || [];
-                calendarEvents = {};
-                
-                events.forEach(event => {
-                    const title = (event.summary || "").toLowerCase();
-                    const isMatch = KEYWORDS.some(k => title.includes(k.toLowerCase()));
-                    if (isMatch) {
-                        const date = event.start.date || event.start.dateTime.split('T')[0];
-                        calendarEvents[date] = true;
-                    }
-                });
-                renderCalendars();
-            } catch (e) { 
-                console.error("Error Calendar:", e); 
-                updateStatus("Error cargando calendario.");
-            }
-        }
-
-        // CONTROL DE VERSIONES (Z1) Y GUARDADO
-        async function loadData() {
-            try {
-                const response = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: SPREADSHEET_ID, range: 'Sheet1!A:Z'
-                });
-                const values = response.result.values || [];
-                
-                // Cargar versión Z1
-                if (values[0] && values[0][25]) { 
-                    localVersion = parseInt(values[0][25]); 
-                }
-
-                // Cargar datos (esto depende de cómo guardes las filas)
-                // travelData = ... lógica de mapeo ...
-                
-                renderCalendars();
-                updateSummary();
-                updateStatus("Datos cargados (v" + localVersion + ")");
-            } catch (e) { console.error(e); }
-        }
-
-        async function saveAll() {
-            if (document.visibilityState !== 'visible') return;
-            
-            try {
-                const check = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: SPREADSHEET_ID, range: 'Sheet1!Z1'
-                });
-                const remoteVersion = parseInt(check.result.values ? check.result.values[0][0] : 0);
-
-                if (remoteVersion > localVersion) {
-                    alert("⚠️ Conflicto: Se han detectado cambios más nuevos en otro dispositivo. Refrescando...");
-                    await loadData();
-                    return;
-                }
-
-                const newVersion = remoteVersion + 1;
-                await gapi.client.sheets.spreadsheets.values.update({
-                    spreadsheetId: SPREADSHEET_ID, range: 'Sheet1!Z1',
-                    valueInputOption: 'RAW', resource: { values: [[newVersion]] }
-                });
-
-                // Lógica de guardado de celdas...
-                
-                localVersion = newVersion;
-                updateStatus("✅ Guardado (v" + localVersion + ")");
-            } catch (e) { updateStatus("❌ Error al guardar"); }
-        }
-
-        // RENDERIZADO DE MESES
-        function renderCalendars() {
-            const container = document.getElementById('calendars');
-            container.innerHTML = '';
-            const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            
-            months.forEach((month, index) => {
-                const card = document.createElement('div');
-                card.className = 'month-card';
-                card.innerHTML = `<div class="month-name">${month} 2026</div>`;
-                
-                const grid = document.createElement('div');
-                grid.className = 'days-grid';
-                ['L', 'M', 'X', 'J', 'V', 'S', 'D'].forEach(d => {
-                    grid.innerHTML += `<div class="day-name">${d}</div>`;
-                });
-
-                // Lógica simple para rellenar días (Simplificada para el ejemplo)
-                const firstDay = new Date(2026, index, 1).getDay();
-                const daysInMonth = new Date(2026, index + 1, 0).getDate();
-                const offset = firstDay === 0 ? 6 : firstDay - 1;
-
-                for (let i = 0; i < offset; i++) grid.innerHTML += `<div class="day other-month"></div>`;
-
-                for (let d = 1; d <= daysInMonth; d++) {
-                    const dateStr = `2026-${String(index + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                    const hasEvent = calendarEvents[dateStr] ? '<div class="event-dot"></div>' : '';
-                    const dayBg = travelData[dateStr] || 'transparent';
-                    
-                    grid.innerHTML += `<div class="day" style="background:${dayBg}" onclick="toggleDay('${dateStr}')">${d}${hasEvent}</div>`;
-                }
-                
-                card.appendChild(grid);
-                container.appendChild(card);
-            });
-        }
-
-        function selectColor(color) {
-            selectedColor = color;
-            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
-            // Seleccionar por ID
-            if(color === '#ffcccb') document.getElementById('col-ES').classList.add('selected');
-            if(color === '#add8e6') document.getElementById('col-IT').classList.add('selected');
-            if(color === '#90ee90') document.getElementById('col-FR').classList.add('selected');
-            if(color === '#ffffcc') document.getElementById('col-AND').classList.add('selected');
-            if(color === '#e6e6e6') document.getElementById('col-Other').classList.add('selected');
-        }
-
-        function toggleDay(date) {
-            travelData[date] = travelData[date] === selectedColor ? 'transparent' : selectedColor;
-            renderCalendars();
-            updateSummary();
-        }
-
-        function updateSummary() {
-            const counts = { 'ES': 0, 'IT': 0, 'FR': 0, 'AND': 0, 'Other': 0 };
-            const labels = { '#ffcccb': 'ES', '#add8e6': 'IT', '#90ee90': 'FR', '#ffffcc': 'AND', '#e6e6e6': 'Other' };
-            
-            Object.values(travelData).forEach(color => {
-                if(labels[color]) counts[labels[color]]++;
-            });
-
-            document.getElementById('summaryContent').innerHTML = `
-                <p>🔴 <b>ES:</b> ${counts.ES} días | 🔵 <b>IT:</b> ${counts.IT} días | 🟢 <b>FR:</b> ${counts.FR} días | 🟡 <b>AND:</b> ${counts.AND} días | ⚪ <b>Other:</b> ${counts.Other} días</p>
-            `;
-        }
-
-        window.onload = function() {
-            gapiLoaded();
-            gisLoaded();
-            selectColor('#ffcccb');
-        };
-    </script>
-</body>
-</html>
+        // CONFIGURACIÓN ACTUALIZADA
+        const CLIENT_ID = '62569860135-87ahagt2aflno2e0o022l44iovnk2de4.apps.googleusercontent.com';
