@@ -112,7 +112,7 @@
 <body>
     <div class="header">
         <h1>Control de Residencia</h1>
-        <div class="status-bar"><span class="status-dot"></span><span id="syncText">Sincronizando...</span></div>
+        <div class="status-bar"><span class="status-dot"></span><span id="syncText">Cargando...</span></div>
         <div class="user-selector">
             <button class="user-btn active" id="btnRicardo" onclick="setUser('Ricardo')">Ricardo</button>
             <button class="user-btn" id="btnSylvia" onclick="setUser('Sylvia')">Sylvia</button>
@@ -151,12 +151,14 @@
         const CLIENT_ID = '62569860135-87ahagt2aflno2e0o022l44iovnk2de4.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/calendar.events.readonly';
 
+        // PALABRAS CLAVE QUE BUSCAREMOS
+        const KEYWORDS = ['trimestral', 'lunes', 'estrategia', 'offsite', 'real estate awards', 'dns'];
+
         let tokenClient;
         let currentYear = 2026;
         let currentUser = 'Ricardo';
         let selectedColorVar = '--madrid';
         
-        // Estructura de datos con Marca de Tiempo
         let travelData = JSON.parse(localStorage.getItem('travel_data_v2')) || {
             updatedAt: 0,
             days: {}
@@ -176,8 +178,51 @@
                 callback: (resp) => {
                     if (resp.error) return;
                     document.getElementById('syncText').innerText = "✅ Sincronizado";
+                    fetchCalendarEvents();
                 },
             });
+        }
+
+        async function fetchCalendarEvents() {
+            try {
+                const response = await gapi.client.calendar.events.list({
+                    'calendarId': 'primary',
+                    'timeMin': (new Date(currentYear, 0, 1)).toISOString(),
+                    'timeMax': (new Date(currentYear, 11, 31)).toISOString(),
+                    'singleEvents': true
+                });
+
+                const events = response.result.items;
+                let foundAny = false;
+
+                events.forEach(event => {
+                    const title = (event.summary || "").toLowerCase();
+                    const start = event.start.date || event.start.dateTime.split('T')[0];
+                    
+                    // Comprobar si el título contiene alguna palabra clave
+                    const match = KEYWORDS.some(word => title.includes(word));
+
+                    if (match) {
+                        // Si hay coincidencia, lo marcamos por defecto como Madrid (o el color que quieras)
+                        // Formato de la fecha para que coincida con tus dateKeys
+                        const d = new Date(start);
+                        const key = `${currentYear}-${d.getMonth()+1}-${d.getDate()}-${currentUser}`;
+                        
+                        // Solo sobreescribimos si no estaba marcado manualmente
+                        if (!travelData.days[key]) {
+                            travelData.days[key] = '--madrid'; // O la lógica de color que prefieras
+                            foundAny = true;
+                        }
+                    }
+                });
+
+                if (foundAny) {
+                    travelData.updatedAt = Date.now();
+                    renderCalendar();
+                }
+            } catch (err) {
+                console.error("Error cargando eventos:", err);
+            }
         }
 
         function handleGoogleAuth() {
@@ -248,7 +293,7 @@
                             day.style.background = `var(${selectedColorVar})`;
                             day.style.color = 'white';
                         }
-                        travelData.updatedAt = Date.now(); // Marca el cambio con tiempo
+                        travelData.updatedAt = Date.now();
                         updateSummary();
                     };
                     grid.appendChild(day);
