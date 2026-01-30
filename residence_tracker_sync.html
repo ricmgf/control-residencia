@@ -1517,6 +1517,7 @@ async function loadDataFromSheets() {
                                     note: note ? note.trim() : '',
                                     timestamp: ts
                                 };
+                                console.log(`💾 Guardando: [${p}][${cleanDate}] = ${cleanLocation}`);
                             }
                         }
                     });
@@ -1822,7 +1823,12 @@ async function loadDataFromSheets() {
         }
 
         function getDayKey(year, month, day) {
-            return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            // Log solo para diciembre 24-31
+            if (month === 11 && day >= 24) {
+                console.log(`🔑 getDayKey(${year}, ${month}, ${day}) = "${key}"`);
+            }
+            return key;
         }
 
         function getDayData(year, month, day) {
