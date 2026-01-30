@@ -1428,7 +1428,7 @@ async function loadDataFromSheets() {
                 
                 // Cargar datos de Google Sheets
                 const response = await fetch(
-                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:D`,
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:E`,
                     {
                         headers: {
                             'Authorization': `Bearer ${accessToken}`
@@ -1455,7 +1455,7 @@ async function loadDataFromSheets() {
                     console.log(`📊 Cargados ${result.values.length} registros desde Sheets`);
                     
                     result.values.forEach((row, index) => {
-                        let [date, location, note, profile] = row;
+                        let [date, location, note, profile, timestamp] = row; // Añadido timestamp
                         if (date && profile) {
                             // 1. Limpieza absoluta de espacios
                             let cleanDate = date.trim();
@@ -1465,39 +1465,36 @@ async function loadDataFromSheets() {
                             if (cleanDate.includes('/')) {
                                 const parts = cleanDate.split('/');
                                 if (parts.length === 3) {
-                                    // Maneja tanto DD/MM/YY como DD/MM/YYYY
                                     const year = parts[2].length === 2 ? "20" + parts[2] : parts[2];
                                     cleanDate = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                                 }
                             }
                             
-                            // 3. Normalización de Perfil (Ricardo / Sylvia)
-                            // Convertimos a minúsculas y luego ponemos la primera en Mayúscula
+                            // 3. Normalización de Perfil
                             const standardizedProfile = cleanProfile.charAt(0).toUpperCase() + cleanProfile.slice(1).toLowerCase();
                             
-                            // 4. Normalización de Ubicación (CRÍTICO para los colores)
+                            // 4. Normalización de Ubicación
                             let cleanLocation = null;
                             if (location && location.trim()) {
                                 cleanLocation = location.trim().toUpperCase();
                             }
                             
-                            // Log de diagnóstico para las primeras 3 filas
-                            if (index < 3) {
-                                console.log(`🔍 Fila ${index + 1}:`, {
-                                    fecha: cleanDate,
-                                    ubicación: cleanLocation,
-                                    nota: note ? note.trim().substring(0, 20) + '...' : '(vacía)',
-                                    perfil: standardizedProfile
-                                });
-                            }
+                            // 5. Timestamp - Comparar con local y quedarse con el más reciente
+                            const serverTimestamp = timestamp ? parseInt(timestamp) : 0;
+                            const localData = data[standardizedProfile]?.[cleanDate];
+                            const localTimestamp = localData?.timestamp || 0;
                             
-                            if (data[standardizedProfile]) {
-                                data[standardizedProfile][cleanDate] = {
-                                    location: cleanLocation,
-                                    note: note ? note.trim() : ''
-                                };
+                            // Solo sobrescribir si el servidor es más reciente
+                            if (serverTimestamp >= localTimestamp) {
+                                if (data[standardizedProfile]) {
+                                    data[standardizedProfile][cleanDate] = {
+                                        location: cleanLocation,
+                                        note: note ? note.trim() : '',
+                                        timestamp: serverTimestamp
+                                    };
+                                }
                             } else {
-                                console.warn(`⚠️ Perfil desconocido ignorado: "${cleanProfile}" (normalizado: "${standardizedProfile}")`);
+                                console.log(`⏭️ Dato local más reciente para ${cleanDate}, manteniendo local`);
                             }
                         }
                     });
@@ -1721,15 +1718,17 @@ async function loadDataFromSheets() {
                 
                 // Convertir datos internos a formato de Sheet
                 const rows = [];
+                const now = Date.now(); // Timestamp actual
                 
                 Object.keys(data).forEach(profile => {
                     Object.keys(data[profile]).forEach(date => {
                         const dayData = data[profile][date];
                         rows.push([
-                            date,
-                            dayData.location || '',
-                            dayData.note || '',
-                            profile
+                            date,                           // A: Fecha
+                            dayData.location || '',         // B: Ubicación
+                            dayData.note || '',            // C: Nota
+                            profile,                        // D: Perfil
+                            dayData.timestamp || now       // E: Timestamp (usa el existente o nuevo)
                         ]);
                     });
                 });
@@ -1744,23 +1743,9 @@ async function loadDataFromSheets() {
                 
                 console.log(`💾 Guardando ${rows.length} registros en Sheets...`);
                 
-                
-
-                // Limpiar y escribir todos los datos
-                await fetch(
-                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:D:clear`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${accessToken}`,
-                            'Content-Type': 'application/json'
-                        }
-                    }
-                );
-
-                // Escribir nuevos datos
-                await fetch(
-                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:D?valueInputOption=RAW`,
+                // Escribir datos directamente (sobrescribe sin borrar primero)
+                const response = await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:E?valueInputOption=RAW`,
                     {
                         method: 'PUT',
                         headers: {
@@ -1773,13 +1758,20 @@ async function loadDataFromSheets() {
                     }
                 );
                 
+                // Verificar que guardó correctamente
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
+                }
+                
+                console.log('✅ Datos guardados correctamente en Sheets');
+                
                 // ACTUALIZAR TIMESTAMP TRAS GUARDADO EXITOSO
                 await updateServerTimestamp();
                 
                 updateSyncStatus('synced', 'Sincronizado');
             } catch (error) {
-                console.error('Error al guardar:', error);
-                updateSyncStatus('error', 'Error al guardar');
+                console.error('❌ Error al guardar:', error);
+                updateSyncStatus('error', `Error: ${error.message}`);
             }
         }
 
@@ -1788,7 +1780,7 @@ async function loadDataFromSheets() {
             
             try {
                 const response = await fetch(
-                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:D`,
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A2:E`,
                     {
                         headers: {
                             'Authorization': `Bearer ${accessToken}`
@@ -2012,7 +2004,10 @@ async function loadDataFromSheets() {
                 dayData.location = selectedLocation;
             }
             
-            scheduleAutoSave(); // En lugar de guardar inmediatamente
+            // Actualizar timestamp al modificar
+            dayData.timestamp = Date.now();
+            
+            scheduleAutoSave();
             renderCalendar();
             updateSummary();
         }
@@ -2047,11 +2042,12 @@ async function loadDataFromSheets() {
             const key = getDayKey(year, month, day);
             
             if (!data[currentProfile][key]) {
-                data[currentProfile][key] = { location: null, note: '' };
+                data[currentProfile][key] = { location: null, note: '', timestamp: Date.now() };
             }
             data[currentProfile][key].note = note;
+            data[currentProfile][key].timestamp = Date.now(); // Actualizar timestamp
             
-            saveDataToSheets();
+            scheduleAutoSave(); // Usar debounce también aquí
             closeModal();
             renderCalendar();
         }
