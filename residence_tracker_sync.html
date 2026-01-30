@@ -16,7 +16,6 @@
 
         body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; color: var(--text-color); }
 
-        /* Selector Sticky */
         .legend {
             position: -webkit-sticky;
             position: sticky;
@@ -34,15 +33,12 @@
             align-items: center;
         }
         
-        .legend h2 { display: none; } /* Quitamos título para ahorrar espacio */
-
         .color-option { 
             width: 30px; height: 30px; border-radius: 50%; cursor: pointer; 
             border: 3px solid transparent; transition: transform 0.2s;
         }
         .color-option.selected { border-color: var(--primary-color); transform: scale(1.1); }
 
-        /* Calendario */
         .calendar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
         .month-card { background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
         .month-name { font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: capitalize; }
@@ -52,41 +48,11 @@
         .day:hover { background-color: #f2f3f5; }
         .day.other-month { color: #ccd0d5; cursor: default; }
         
-        /* Punto de Calendar */
-        .event-dot {
-            width: 4px; height: 4px; background: #ff4757; border-radius: 50%;
-            position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
-        }
-
         .summary-container { margin-top: 30px; background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
-        #syncStatus { font-size: 12px; color: #666; text-align: center; margin-bottom: 10px; }
+        #syncStatus { font-size: 13px; font-weight: bold; color: #d63031; text-align: center; margin-bottom: 10px; background: #fff; padding: 5px; border-radius: 4px; }
         .btn { padding: 8px 16px; border-radius: 6px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="syncStatus">Esperando conexión...</div>
-
-    <div class="legend" id="colorSelector">
-        <div class="color-option" style="background:#ffcccb" onclick="selectColor('#ffcccb')" id="col-ES" title="España"></div>
-        <div class="color-option" style="background:#add8e6" onclick="selectColor('#add8e6')" id="col-IT" title="Italia"></div>
-        <div class="color-option" style="background:#90ee90" onclick="selectColor('#90ee90')" id="col-FR" title="Francia"></div>
-        <div class="color-option" style="background:#ffffcc" onclick="selectColor('#ffffcc')" id="col-AND" title="Andorra"></div>
-        <div class="color-option" style="background:#e6e6e6" onclick="selectColor('#e6e6e6')" id="col-Other" title="Otros"></div>
-        <button class="btn" onclick="saveAll()">💾 Guardar</button>
-        <button class="btn" style="background:#65676b" onclick="handleAuthClick()">🔑 Re-conectar</button>
-    </div>
-
-    <div id="calendars" class="calendar-grid"></div>
-
-    <div class="summary-container" id="summary">
-        <h3>Resumen Residencia 2026</h3>
-        <div id="summaryContent"></div>
-    </div>
-
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js"></script>
-
-    <script>
-        // CONFIGURACIÓN ACTUALIZADA
-        const CLIENT_ID = '62569860135-87ahagt2aflno2e0o022l44iovnk2de4.apps.googleusercontent.com';
+    <div id="syncStatus">Cargando sistemas de Google...
