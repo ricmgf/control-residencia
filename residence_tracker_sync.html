@@ -1416,50 +1416,51 @@ async function loadDataFromSheets() {
                     result.values.forEach(row => {
                         let [date, location, note, profile] = row;
                         if (date && profile) {
-                            // --- NORMALIZACIÓN DE FECHA (CRÍTICO) ---
+                            // 1. Limpieza absoluta de espacios
                             let cleanDate = date.trim();
+                            let cleanProfile = profile.trim();
                             
-                            // Si viene como DD/MM/YYYY, convertir a YYYY-MM-DD
+                            // 2. Normalización de fecha (DD/MM/YYYY → YYYY-MM-DD)
                             if (cleanDate.includes('/')) {
                                 const parts = cleanDate.split('/');
-                                if (parts.length === 3 && parts[2].length === 4) {
-                                    // Formato DD/MM/YYYY → YYYY-MM-DD
-                                    cleanDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                                    console.log(`🔄 Fecha convertida: ${date} → ${cleanDate}`);
+                                if (parts.length === 3) {
+                                    // Maneja tanto DD/MM/YY como DD/MM/YYYY
+                                    const year = parts[2].length === 2 ? "20" + parts[2] : parts[2];
+                                    cleanDate = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                                 }
                             }
                             
-                            // Normalizar nombre de perfil (primera letra mayúscula)
-                            const profileKey = profile.trim().charAt(0).toUpperCase() + profile.trim().slice(1).toLowerCase();
+                            // 3. Normalización de Perfil (Ricardo / Sylvia)
+                            // Convertimos a minúsculas y luego ponemos la primera en Mayúscula
+                            const standardizedProfile = cleanProfile.charAt(0).toUpperCase() + cleanProfile.slice(1).toLowerCase();
                             
-                            if (data[profileKey]) {
-                                data[profileKey][cleanDate] = {
+                            if (data[standardizedProfile]) {
+                                data[standardizedProfile][cleanDate] = {
                                     location: location ? location.trim() : null,
                                     note: note ? note.trim() : ''
                                 };
                             } else {
-                                console.warn(`⚠️ Perfil desconocido: ${profile}`);
+                                console.warn(`⚠️ Perfil desconocido ignorado: "${cleanProfile}" (normalizado: "${standardizedProfile}")`);
                             }
                         }
                     });
                     
                     // Log de debugging para ver los datos procesados
-                    console.log(`📍 Datos normalizados para ${currentProfile}:`, Object.keys(data[currentProfile]).length, "fechas");
+                    console.log(`📍 Datos listos para ${currentProfile}:`, Object.keys(data[currentProfile]).length, "fechas");
                     console.log(`📊 Primeras 3 fechas:`, Object.keys(data[currentProfile]).slice(0, 3));
-                    console.log(`📊 Ejemplo de datos:`, Object.entries(data[currentProfile]).slice(0, 2));
                 } else {
                     console.log('ℹ️ No hay datos previos en Sheets - iniciando calendario vacío');
                 }
                 
-                // CRÍTICO: Renderizar interfaz INMEDIATAMENTE
-                console.log("🎨 Dibujando calendario...");
+                // 4. EL PASO DEFINITIVO: Redibujar todo
+                console.log("🎨 Redibujando interfaz completa...");
                 renderCalendar();
                 updateSummary();
                 
                 // ACTUALIZAR TIMESTAMP TRAS CARGA EXITOSA
                 await updateServerTimestamp();
                 updateSyncStatus('synced', 'Sincronizado');
-                console.log('✅ Datos cargados correctamente');
+                console.log('✅ Interfaz actualizada correctamente');
                 
                 // Iniciar sincronización automática
                 setInterval(syncData, 30000);
