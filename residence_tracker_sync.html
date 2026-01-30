@@ -3,184 +3,279 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Travel Tracker 2026 - Sync Pro</title>
+    <title>Travel Calendar 2026</title>
     <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAAAIAAOAQAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgCAAAAkJFoNgAAANVJREFUeJyNkjEKAjEQRf/E2S3WYm3EwguId7AXPIG1tYqVeA0PYWFl4wm8iI2CoMWCNusmYxFEY5LFIU1++Pz3h9C23cXXCIG1FE1eTHuFeoz7o81wJcBxvrzt9tzKGQRn6H0iw1I5dyGIxo/oGNLc+EhpZmIhPFhfHAOQEK46SU4G9wCblwAkhLQyOP/Zwdao6RBgrd2Sir5EEyQkB0VrIPaIqIYIXBYOlS1dahUL4cOs4xjsX8r4OVFoBNi8BILRUlYKEt6V14FABL/YxxBglbotvQDpiEqFWhWREwAAAABJRU5ErkJggg==">
     <style>
         :root {
-            --bg-color: #f0f2f5;
-            --card-bg: #ffffff;
-            --text-color: #1c1e21;
-            --border-color: #dddfe2;
-            --primary-color: #1877f2;
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-bg: #f8f9fa;
+            --text-main: #2d3436;
+            --white: #ffffff;
+            --shadow: 0 10px 30px rgba(0,0,0,0.1);
+            --madrid: #fdcb6e;
+            --andratx: #0984e3;
+            --italia: #d63031;
+            --francia: #00b894;
+            --other: #a29bfe;
         }
 
-        body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; color: var(--text-color); }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--secondary-bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
 
-        /* Selector Sticky ORIGINAL */
+        .header {
+            background: var(--primary-gradient);
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--white);
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .header h1 { margin: 0; font-size: 2.5em; font-weight: 700; letter-spacing: -1px; }
+
+        .status-bar {
+            background: rgba(255,255,255,0.15);
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: inline-block;
+            margin-top: 15px;
+            font-size: 0.9em;
+            backdrop-filter: blur(5px);
+        }
+
+        .status-dot { height: 8px; width: 8px; background: #55efc4; border-radius: 50%; display: inline-block; margin-right: 8px; box-shadow: 0 0 10px #55efc4; }
+
+        .user-selector { display: flex; justify-content: center; gap: 20px; margin-top: 30px; }
+        .user-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid var(--white);
+            padding: 12px 35px;
+            border-radius: 30px;
+            color: var(--white);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .user-btn.active { background: var(--white); color: #764ba2; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
         .legend {
-            position: -webkit-sticky;
-            position: sticky;
-            top: 10px;
-            z-index: 1000;
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            margin-bottom: 20px;
+            position: sticky; top: 20px; z-index: 100;
+            background: var(--white);
+            margin: -30px auto 30px;
+            padding: 20px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 800px;
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
             justify-content: center;
-            align-items: center;
+            gap: 15px;
+            box-shadow: var(--shadow);
         }
-        
-        .color-option { 
-            width: 30px; height: 30px; border-radius: 50%; cursor: pointer; 
-            border: 3px solid transparent; transition: transform 0.2s;
-        }
-        .color-option.selected { border-color: var(--primary-color); transform: scale(1.1); }
 
-        /* Calendario ORIGINAL */
-        .calendar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .month-card { background: var(--card-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
-        .month-name { font-weight: bold; margin-bottom: 10px; text-align: center; text-transform: capitalize; }
-        .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
-        .day-name { font-size: 10px; color: #65676b; font-weight: bold; }
-        .day { padding: 8px; border-radius: 4px; cursor: pointer; font-size: 14px; position: relative; min-height: 25px; }
-        .day:hover { background-color: #f2f3f5; }
-        .day.other-month { color: #ccd0d5; cursor: default; }
-        
-        .summary-container { margin-top: 30px; background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
-        #syncStatus { font-size: 12px; color: #666; text-align: center; margin-bottom: 10px; }
-        .btn { padding: 8px 16px; border-radius: 6px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: bold; }
+        .color-item {
+            display: flex; align-items: center; gap: 10px; padding: 8px 15px;
+            border-radius: 15px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s;
+        }
+        .color-item.selected { border-color: #6c5ce7; background: #f0f0ff; }
+        .dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(0,0,0,0.1); }
+
+        .action-btns { margin-left: 20px; display: flex; gap: 10px; border-left: 1px solid #eee; padding-left: 20px; }
+        .btn-icon { background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        .year-nav { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 30px; }
+        .nav-btn { background: #6c5ce7; color: white; border: none; width: 40px; height: 40px; border-radius: 12px; cursor: pointer; }
+
+        .calendar-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; padding: 20px; max-width: 1400px; margin: 0 auto; }
+        .month-card { background: var(--white); border-radius: 25px; padding: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        .month-title { text-align: center; font-size: 1.4em; font-weight: 700; color: var(--text-main); margin-bottom: 20px; }
+        .days-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: 700; font-size: 0.8em; color: #b2bec3; margin-bottom: 10px; }
+        .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+        .day { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 600; font-size: 0.9em; cursor: pointer; border: 1px solid #f1f2f6; position: relative; }
+        .day.other-month { opacity: 0; pointer-events: none; }
+
+        .summary-badge { position: fixed; bottom: 30px; right: 30px; background: var(--madrid); padding: 20px; border-radius: 50%; width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(253, 203, 110, 0.4); font-weight: 700; }
+        .summary-label { font-size: 0.6em; text-transform: uppercase; }
+        .summary-val { font-size: 1.4em; }
     </style>
 </head>
 <body>
-
-    <div id="syncStatus">Esperando conexión...</div>
-
-    <div class="legend" id="colorSelector">
-        <div class="color-option" style="background:#ffcccb" onclick="selectColor('#ffcccb')" id="col-ES" title="España"></div>
-        <div class="color-option" style="background:#add8e6" onclick="selectColor('#add8e6')" id="col-IT" title="Italia"></div>
-        <div class="color-option" style="background:#90ee90" onclick="selectColor('#90ee90')" id="col-FR" title="Francia"></div>
-        <div class="color-option" style="background:#ffffcc" onclick="selectColor('#ffffcc')" id="col-AND" title="Andorra"></div>
-        <div class="color-option" style="background:#e6e6e6" onclick="selectColor('#e6e6e6')" id="col-Other" title="Otros"></div>
-        <button class="btn" onclick="saveData()">💾 Guardar</button>
-        <button class="btn" style="background:#65676b" id="authBtn" onclick="handleAuthClick()">🔑 Re-conectar Google</button>
+    <div class="header">
+        <h1>Control de Residencia</h1>
+        <div class="status-bar"><span class="status-dot"></span><span id="syncText">Sincronizado</span></div>
+        <div class="user-selector">
+            <button class="user-btn active" onclick="setUser('Ricardo')">Ricardo</button>
+            <button class="user-btn" onclick="setUser('Sylvia')">Sylvia</button>
+        </div>
     </div>
 
-    <div id="calendars" class="calendar-grid"></div>
-
-    <div class="summary-container" id="summary">
-        <h3>Resumen Residencia 2026</h3>
-        <div id="summaryContent"></div>
+    <div class="legend">
+        <div class="color-item selected" onclick="selectColor('--madrid', this)"><div class="dot" style="background: var(--madrid)"></div><span>Madrid</span></div>
+        <div class="color-item" onclick="selectColor('--andratx', this)"><div class="dot" style="background: var(--andratx)"></div><span>Andratx</span></div>
+        <div class="color-item" onclick="selectColor('--italia', this)"><div class="dot" style="background: var(--italia)"></div><span>Italia</span></div>
+        <div class="color-item" onclick="selectColor('--francia', this)"><div class="dot" style="background: var(--francia)"></div><span>Francia</span></div>
+        <div class="color-item" onclick="selectColor('--other', this)"><div class="dot" style="background: var(--other)"></div><span>Other</span></div>
+        <div class="action-btns">
+            <button class="btn-icon" onclick="saveToLocal()">💾 Guardar Local</button>
+            <button class="btn-icon" style="background: #4285F4" onclick="handleGoogleAuth()">🔑 Conectar Google</button>
+        </div>
     </div>
+
+    <div class="year-nav">
+        <button class="nav-btn" onclick="changeYear(-1)">❮</button>
+        <h2 id="currentYearDisplay">2026</h2>
+        <button class="nav-btn" onclick="changeYear(1)">❯</button>
+    </div>
+
+    <div id="calendarContainer" class="calendar-grid"></div>
+
+    <div class="summary-badge">
+        <span class="summary-label">🇪🇸 España</span>
+        <span class="summary-val" id="totalSpain">0</span>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
 
     <script>
         const CLIENT_ID = '62569860135-87ahagt2aflno2e0o022l44iovnk2de4.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/calendar.events.readonly';
 
         let tokenClient;
-        let gapiInited = false;
-        let gsiInited = false;
-        let selectedColor = '#ffcccb';
-        let tripData = JSON.parse(localStorage.getItem('travelData2026')) || {};
+        let currentYear = 2026;
+        let currentUser = 'Ricardo';
+        let selectedColorVar = '--madrid';
+        
+        // CARGA CON TIMESTAMP PARA EVITAR CONFLICTOS
+        let fullData = JSON.parse(localStorage.getItem('travel_data_v2')) || {
+            lastUpdated: 0,
+            days: {}
+        };
 
-        // Esta función carga Google de forma segura para GitHub Pages
-        function loadGoogle() {
-            const s1 = document.createElement('script'); s1.src = "https://apis.google.com/js/api.js"; s1.onload = () => {
-                gapi.load('client', async () => {
-                    await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] });
-                    gapiInited = true; checkStatus();
+        function initGoogleAuth() {
+            gapi.load('client', async () => {
+                await gapi.client.init({
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
                 });
-            };
-            document.head.appendChild(s1);
+            });
 
-            const s2 = document.createElement('script'); s2.src = "https://accounts.google.com/gsi/client"; s2.onload = () => {
-                tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID, scope: SCOPES,
-                    callback: (resp) => {
-                        if (resp.error) return;
-                        document.getElementById('syncStatus').innerText = "✅ Google Conectado";
-                        document.getElementById('syncStatus').style.color = "green";
-                    }
-                });
-                gsiInited = true; checkStatus();
-            };
-            document.head.appendChild(s2);
-        }
-
-        function checkStatus() {
-            if (gapiInited && gsiInited) document.getElementById('syncStatus').innerText = "Listo para sincronizar";
-        }
-
-        function handleAuthClick() {
-            if (tokenClient) tokenClient.requestAccessToken({prompt: 'consent'});
-        }
-
-        function selectColor(color) {
-            selectedColor = color;
-            document.querySelectorAll('.color-option').forEach(opt => {
-                const c = opt.style.backgroundColor.replace(/\s/g, '').toLowerCase();
-                opt.classList.toggle('selected', c === color.toLowerCase());
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: (resp) => {
+                    if (resp.error) return;
+                    document.getElementById('syncText').innerText = "Conectado";
+                },
             });
         }
 
-        function renderYear(year) {
-            const container = document.getElementById('calendars');
+        function handleGoogleAuth() {
+            if (tokenClient) tokenClient.requestAccessToken({prompt: 'consent'});
+        }
+
+        function selectColor(colorVar, element) {
+            selectedColorVar = colorVar;
+            document.querySelectorAll('.color-item').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+
+        function setUser(user) {
+            currentUser = user;
+            document.querySelectorAll('.user-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.innerText === user);
+            });
+            renderCalendar();
+        }
+
+        function changeYear(delta) {
+            currentYear += delta;
+            document.getElementById('currentYearDisplay').innerText = currentYear;
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendarContainer');
             container.innerHTML = '';
-            const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            months.forEach((monthName, monthIdx) => {
+            const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+            months.forEach((month, index) => {
                 const card = document.createElement('div');
                 card.className = 'month-card';
-                card.innerHTML = `<div class="month-name">${monthName} ${year}</div>`;
-                const daysGrid = document.createElement('div');
-                daysGrid.className = 'days-grid';
-                ['L','M','X','J','V','S','D'].forEach(d => daysGrid.innerHTML += `<div class="day-name">${d}</div>`);
-                const firstDay = new Date(year, monthIdx, 1).getDay();
-                const adjFirstDay = (firstDay === 0) ? 6 : firstDay - 1;
-                const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-                for (let i = 0; i < adjFirstDay; i++) daysGrid.innerHTML += `<div class="day other-month"></div>`;
-                for (let d = 1; d <= daysInMonth; d++) {
-                    const dateKey = `${year}-${String(monthIdx+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-                    const dayDiv = document.createElement('div');
-                    dayDiv.className = 'day';
-                    dayDiv.innerText = d;
-                    if (tripData[dateKey]) dayDiv.style.backgroundColor = tripData[dateKey];
-                    dayDiv.onclick = () => {
-                        if (dayDiv.style.backgroundColor) { dayDiv.style.backgroundColor = ''; delete tripData[dateKey]; }
-                        else { dayDiv.style.backgroundColor = selectedColor; tripData[dateKey] = selectedColor; }
+                card.innerHTML = `<div class="month-title">${month}</div>`;
+                
+                const header = document.createElement('div');
+                header.className = 'days-header';
+                ['L','M','X','J','V','S','D'].forEach(d => header.innerHTML += `<div>${d}</div>`);
+                card.appendChild(header);
+
+                const grid = document.createElement('div');
+                grid.className = 'days-grid';
+                
+                const firstDay = new Date(currentYear, index, 1).getDay();
+                const offset = firstDay === 0 ? 6 : firstDay - 1;
+                const daysInMonth = new Date(currentYear, index + 1, 0).getDate();
+
+                for(let i=0; i<offset; i++) grid.innerHTML += `<div class="day other-month"></div>`;
+
+                for(let d=1; d<=daysInMonth; d++) {
+                    const dateKey = `${currentYear}-${index+1}-${d}-${currentUser}`;
+                    const day = document.createElement('div');
+                    day.className = 'day';
+                    day.innerText = d;
+                    
+                    if(fullData.days[dateKey]) {
+                        day.style.background = `var(${fullData.days[dateKey]})`;
+                        day.style.color = 'white';
+                    }
+
+                    day.onclick = () => {
+                        if(fullData.days[dateKey]) {
+                            delete fullData.days[dateKey];
+                            day.style.background = '';
+                            day.style.color = '';
+                        } else {
+                            fullData.days[dateKey] = selectedColorVar;
+                            day.style.background = `var(${selectedColorVar})`;
+                            day.style.color = 'white';
+                        }
+                        fullData.lastUpdated = Date.now(); // Actualiza marca de tiempo
                         updateSummary();
                     };
-                    daysGrid.appendChild(dayDiv);
+                    grid.appendChild(day);
                 }
-                card.appendChild(daysGrid);
+                card.appendChild(grid);
                 container.appendChild(card);
             });
             updateSummary();
         }
 
         function updateSummary() {
-            const mapping = { '#ffcccb': 'España', '#add8e6': 'Italia', '#90ee90': 'Francia', '#ffffcc': 'Andorra', '#e6e6e6': 'Otros' };
-            const counts = {};
-            Object.values(tripData).forEach(c => { const cl = c.toLowerCase().replace(/\s/g, ''); counts[cl] = (counts[cl] || 0) + 1; });
-            let html = '<ul>';
-            for (const [color, name] of Object.entries(mapping)) {
-                html += `<li><strong>${name}:</strong> ${counts[color.toLowerCase()] || 0} días</li>`;
-            }
-            html += '</ul>';
-            document.getElementById('summaryContent').innerHTML = html;
+            let spainCount = 0;
+            const spainColors = ['--madrid', '--andratx'];
+            
+            Object.keys(fullData.days).forEach(key => {
+                if(key.endsWith(currentUser) && key.startsWith(currentYear)) {
+                    if(spainColors.includes(fullData.days[key])) spainCount++;
+                }
+            });
+            document.getElementById('totalSpain').innerText = spainCount;
         }
 
-        function saveData() {
-            localStorage.setItem('travelData2026', JSON.stringify(tripData));
-            alert("Guardado localmente.");
+        function saveToLocal() {
+            fullData.lastUpdated = Date.now();
+            localStorage.setItem('travel_data_v2', JSON.stringify(fullData));
+            alert("¡Datos guardados con éxito!");
         }
 
         window.onload = () => {
-            renderYear(2026);
-            selectColor('#ffcccb');
-            loadGoogle();
+            initGoogleAuth();
+            renderCalendar();
         };
     </script>
 </body>
