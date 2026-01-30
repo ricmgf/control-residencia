@@ -16,7 +16,7 @@
 
         body { font-family: -apple-system, sans-serif; background: var(--bg-color); margin: 0; padding: 20px; color: var(--text-color); }
 
-        /* RESTAURADA TU INTERFAZ ORIGINAL STICKY */
+        /* INTERFAZ STICKY ORIGINAL RE-ESTABLECIDA */
         .legend {
             position: -webkit-sticky;
             position: sticky;
@@ -51,7 +51,7 @@
         .day.other-month { color: #ccd0d5; cursor: default; }
         
         .summary-container { margin-top: 30px; background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
-        #syncStatus { font-size: 12px; color: #666; text-align: center; margin-bottom: 10px; font-weight: bold; }
+        #syncStatus { font-size: 12px; color: #666; text-align: center; margin-bottom: 10px; }
         .btn { padding: 8px 16px; border-radius: 6px; border: none; background: var(--primary-color); color: white; cursor: pointer; font-weight: bold; }
     </style>
 </head>
@@ -86,7 +86,6 @@
         let selectedColor = '#ffcccb';
         let tripData = JSON.parse(localStorage.getItem('travelData2026')) || {};
 
-        // INYECCIÓN DINÁMICA PARA MANTENER LA CONEXIÓN QUE YA FUNCIONA
         function loadScripts() {
             const s1 = document.createElement('script'); s1.src = "https://apis.google.com/js/api.js"; s1.onload = gapiLoaded; document.head.appendChild(s1);
             const s2 = document.createElement('script'); s2.src = "https://accounts.google.com/gsi/client"; s2.onload = gsiLoaded; document.head.appendChild(s2);
@@ -95,7 +94,8 @@
         function gapiLoaded() {
             gapi.load('client', async () => {
                 await gapi.client.init({ discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'] });
-                gapiInited = true; checkReady();
+                gapiInited = true;
+                if (gsiInited) document.getElementById('syncStatus').innerText = "Listo para conectar";
             });
         }
 
@@ -104,23 +104,18 @@
                 client_id: CLIENT_ID, scope: SCOPES,
                 callback: (resp) => {
                     if (resp.error) return;
-                    document.getElementById('syncStatus').innerText = "✅ Google Sincronizado";
+                    document.getElementById('syncStatus').innerText = "✅ Google Conectado";
                     document.getElementById('syncStatus').style.color = "green";
-                    fetchEvents(); // Intentar traer datos tras conectar
                 }
             });
-            gsiInited = true; checkReady();
-        }
-
-        function checkReady() {
-            if (gapiInited && gsiInited) document.getElementById('syncStatus').innerText = "Listo para sincronizar";
+            gsiInited = true;
+            if (gapiInited) document.getElementById('syncStatus').innerText = "Listo para conectar";
         }
 
         function handleAuthClick() {
-            tokenClient.requestAccessToken({prompt: 'consent'});
+            if (tokenClient) tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
-        // --- LÓGICA DE CALENDARIO RESTAURADA ---
         function selectColor(color) {
             selectedColor = color;
             document.querySelectorAll('.color-option').forEach(opt => {
@@ -176,13 +171,7 @@
 
         function saveData() {
             localStorage.setItem('travelData2026', JSON.stringify(tripData));
-            alert("Guardado localmente.");
-        }
-
-        // FUNCIÓN PARA TRAER EVENTOS (POR QUÉ NO VES DATOS)
-        // Por ahora esta función está vacía porque Google Calendar no sabe qué color asignar a tus eventos.
-        function fetchEvents() {
-            console.log("Conectado, pero falta mapear colores de Calendar a la App.");
+            alert("¡Guardado!");
         }
 
         window.onload = () => {
