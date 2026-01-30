@@ -1105,7 +1105,7 @@
 
     <input type="file" id="fileInput" style="display:none" accept=".json" onchange="handleFileImport(event)">
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleAuth()"></script>
     <script>
         const LOCATIONS = {
             MAD: { name: 'Madrid', color: '#FFEB3B', emoji: '🟡' },
@@ -1321,10 +1321,7 @@
             }
         }
 
-                async function loadDataFromSheets() {
-            updateSyncStatus('syncing', 'Cargando datos...');
-            
-            try {async function loadDataFromSheets() {
+async function loadDataFromSheets() {
             updateSyncStatus('syncing', 'Cargando datos...');
             
             try {
@@ -2026,10 +2023,7 @@ ${eventTitle}` : eventTitle;
             }
         });
 
-        // Inicializar cuando se carga Google Identity Services
-        window.onload = function() {
-            initGoogleAuth();
-        };
+        // initGoogleAuth se llama automáticamente cuando el script de Google se carga (atributo onload)
     </script>
 </body>
 </html>
