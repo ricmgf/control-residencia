@@ -151,8 +151,8 @@
         const CLIENT_ID = '62569860135-87ahagt2aflno2e0o022l44iovnk2de4.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/calendar.events.readonly';
 
-        // PALABRAS CLAVE QUE BUSCAREMOS
-        const KEYWORDS = ['trimestral', 'lunes', 'estrategia', 'offsite', 'real estate awards', 'dns'];
+        // PALABRAS CLAVE QUE BUSCAMOS
+        const BUSCAR_PALABRAS = ['trimestral', 'lunes', 'estrategia', 'offsite', 'real estate awards', 'dns'];
 
         let tokenClient;
         let currentYear = 2026;
@@ -178,12 +178,12 @@
                 callback: (resp) => {
                     if (resp.error) return;
                     document.getElementById('syncText').innerText = "✅ Sincronizado";
-                    fetchCalendarEvents();
+                    importarEventosCalendar();
                 },
             });
         }
 
-        async function fetchCalendarEvents() {
+        async function importarEventosCalendar() {
             try {
                 const response = await gapi.client.calendar.events.list({
                     'calendarId': 'primary',
@@ -192,36 +192,36 @@
                     'singleEvents': true
                 });
 
-                const events = response.result.items;
-                let foundAny = false;
+                const eventos = response.result.items;
+                let huboCambios = false;
 
-                events.forEach(event => {
-                    const title = (event.summary || "").toLowerCase();
-                    const start = event.start.date || event.start.dateTime.split('T')[0];
+                eventos.forEach(evento => {
+                    const titulo = (evento.summary || "").toLowerCase();
+                    const inicio = evento.start.date || evento.start.dateTime.split('T')[0];
                     
-                    // Comprobar si el título contiene alguna palabra clave
-                    const match = KEYWORDS.some(word => title.includes(word));
+                    // Comprobar si el titulo contiene las palabras clave
+                    const coincide = BUSCAR_PALABRAS.some(palabra => titulo.includes(palabra));
 
-                    if (match) {
-                        // Si hay coincidencia, lo marcamos por defecto como Madrid (o el color que quieras)
-                        // Formato de la fecha para que coincida con tus dateKeys
-                        const d = new Date(start);
-                        const key = `${currentYear}-${d.getMonth()+1}-${d.getDate()}-${currentUser}`;
+                    if (coincide) {
+                        const d = new Date(inicio);
+                        // Ajuste para evitar desfase de zona horaria en fechas de todo el día
+                        const diaObj = new Date(inicio + "T12:00:00");
+                        const dateKey = `${currentYear}-${diaObj.getMonth()+1}-${diaObj.getDate()}-${currentUser}`;
                         
-                        // Solo sobreescribimos si no estaba marcado manualmente
-                        if (!travelData.days[key]) {
-                            travelData.days[key] = '--madrid'; // O la lógica de color que prefieras
-                            foundAny = true;
+                        // Solo marcar si el día no tiene ya un color asignado manualmente
+                        if (!travelData.days[dateKey]) {
+                            travelData.days[dateKey] = '--madrid';
+                            huboCambios = true;
                         }
                     }
                 });
 
-                if (foundAny) {
+                if (huboCambios) {
                     travelData.updatedAt = Date.now();
                     renderCalendar();
                 }
             } catch (err) {
-                console.error("Error cargando eventos:", err);
+                console.error("Error al leer Calendar:", err);
             }
         }
 
