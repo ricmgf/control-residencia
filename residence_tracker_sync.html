@@ -1783,15 +1783,36 @@ async function loadDataFromSheets() {
             console.log('🔄 Iniciando sync automático...');
             
             try {
+                // 0. RESTAURAR de localStorage si hay cambios sin guardar
+                const localBackup = localStorage.getItem('residenceData');
+                if (localBackup) {
+                    const localData = JSON.parse(localBackup);
+                    // Fusionar con data actual, respetando timestamps
+                    Object.keys(localData).forEach(profile => {
+                        Object.keys(localData[profile]).forEach(date => {
+                            const localTimestamp = localData[profile][date]?.timestamp || 0;
+                            const currentTimestamp = data[profile]?.[date]?.timestamp || 0;
+                            if (localTimestamp > currentTimestamp) {
+                                if (!data[profile]) data[profile] = {};
+                                data[profile][date] = localData[profile][date];
+                            }
+                        });
+                    });
+                }
+                
                 // 1. PRIMERO: Guardar cambios locales pendientes (si hay)
                 if (pendingChanges) {
                     console.log('💾 Guardando cambios locales antes de sincronizar...');
                     await saveDataToSheets();
+                    pendingChanges = false;
                 }
                 
                 // 2. DESPUÉS: Cargar cambios del servidor
                 console.log('📥 Descargando datos del servidor...');
                 await loadDataFromSheets();
+                
+                // 3. Guardar en localStorage actualizado
+                localStorage.setItem('residenceData', JSON.stringify(data));
                 
                 // 3. Renderizar
                 renderCalendar();
@@ -1992,7 +2013,11 @@ async function loadDataFromSheets() {
             // Actualizar timestamp al modificar
             dayData.timestamp = Date.now();
             
-            scheduleAutoSave();
+            // GUARDAR INMEDIATAMENTE en localStorage como backup
+            localStorage.setItem('residenceData', JSON.stringify(data));
+            console.log('💾 Datos guardados en localStorage');
+            
+            scheduleAutoSave(); // Guardará en Sheets después de 10seg
             renderCalendar();
             updateSummary();
         }
