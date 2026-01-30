@@ -1111,8 +1111,15 @@
 
     <input type="file" id="fileInput" style="display:none" accept=".json" onchange="handleFileImport(event)">
 
-    <script src="https://accounts.google.com/gsi/client" onload="initGoogleAuth()"></script>
+    <script src="https://accounts.google.com/gsi/client" onload="console.log('✅ Script de Google cargado'); initGoogleAuth();"></script>
     <script>
+        // Manejador de errores global para debugging en iPad
+        window.onerror = function(msg, url, linenumber) {
+            console.error('Error global:', msg, 'Línea:', linenumber);
+            alert('Error: ' + msg + '\nLínea: ' + linenumber);
+            return true;
+        };
+
         const LOCATIONS = {
             MAD: { name: 'Madrid', color: '#FFEB3B', emoji: '🟡' },
             AND: { name: 'Andratx', color: '#2196F3', emoji: '🔵' },
@@ -1252,29 +1259,35 @@
         function initGoogleAuth() {
             console.log('🔧 Inicializando Google Identity Services...');
             
-            // Verificar que el objeto google esté disponible
-            if (typeof google === 'undefined' || !google.accounts) {
-                console.error('❌ Google API no está cargada aún');
-                return;
-            }
-            
             try {
+                // Verificar que el objeto google esté disponible
+                if (typeof google === 'undefined' || !google.accounts) {
+                    console.warn('⏳ Google API no está disponible aún, reintentando en 500ms...');
+                    setTimeout(initGoogleAuth, 500);
+                    return;
+                }
+                
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: CLIENT_ID,
                     scope: SCOPES,
                     callback: handleAuthResponse,
                 });
+                
                 console.log('✅ Google Identity Services inicializado correctamente');
                 
-                // Habilitar el botón de login
+                // ACTIVACIÓN FORZOSA DEL BOTÓN
                 const btn = document.getElementById('googleSignInBtn');
                 const btnText = document.getElementById('btnText');
                 if (btn && btnText) {
                     btn.disabled = false;
                     btnText.textContent = 'Conectar con Google';
+                    console.log('✅ Botón activado para iPad');
+                } else {
+                    console.error('❌ No se encontró el botón de Google');
                 }
             } catch (error) {
                 console.error('❌ Error al inicializar Google Identity Services:', error);
+                alert('Error al inicializar Google: ' + error.message);
             }
         }
 
