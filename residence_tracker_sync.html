@@ -1413,7 +1413,7 @@ async function loadDataFromSheets() {
                 if (result.values && result.values.length > 0) {
                     console.log(`📊 Cargados ${result.values.length} registros desde Sheets`);
                     
-                    result.values.forEach(row => {
+                    result.values.forEach((row, index) => {
                         let [date, location, note, profile] = row;
                         if (date && profile) {
                             // 1. Limpieza absoluta de espacios
@@ -1434,9 +1434,25 @@ async function loadDataFromSheets() {
                             // Convertimos a minúsculas y luego ponemos la primera en Mayúscula
                             const standardizedProfile = cleanProfile.charAt(0).toUpperCase() + cleanProfile.slice(1).toLowerCase();
                             
+                            // 4. Normalización de Ubicación (CRÍTICO para los colores)
+                            let cleanLocation = null;
+                            if (location && location.trim()) {
+                                cleanLocation = location.trim().toUpperCase();
+                            }
+                            
+                            // Log de diagnóstico para las primeras 3 filas
+                            if (index < 3) {
+                                console.log(`🔍 Fila ${index + 1}:`, {
+                                    fecha: cleanDate,
+                                    ubicación: cleanLocation,
+                                    nota: note ? note.trim().substring(0, 20) + '...' : '(vacía)',
+                                    perfil: standardizedProfile
+                                });
+                            }
+                            
                             if (data[standardizedProfile]) {
                                 data[standardizedProfile][cleanDate] = {
-                                    location: location ? location.trim() : null,
+                                    location: cleanLocation,
                                     note: note ? note.trim() : ''
                                 };
                             } else {
@@ -1444,6 +1460,15 @@ async function loadDataFromSheets() {
                             }
                         }
                     });
+                    
+                    // Resumen de ubicaciones encontradas
+                    const locationCounts = {};
+                    Object.values(data[currentProfile]).forEach(dayData => {
+                        if (dayData.location) {
+                            locationCounts[dayData.location] = (locationCounts[dayData.location] || 0) + 1;
+                        }
+                    });
+                    console.log(`📊 Resumen de ubicaciones en ${currentProfile}:`, locationCounts);
                     
                     // Log de debugging para ver los datos procesados
                     console.log(`📍 Datos listos para ${currentProfile}:`, Object.keys(data[currentProfile]).length, "fechas");
@@ -1550,19 +1575,24 @@ async function loadDataFromSheets() {
                         
                         // 1. Asegurar que el perfil y la fecha existen
                         if (!data[currentProfile]) data[currentProfile] = {};
-                        if (!data[currentProfile][eventDate]) {
-                            data[currentProfile][eventDate] = { location: null, note: '' };
-                        }
                         
-                        const currentNote = data[currentProfile][eventDate].note || '';
+                        // 2. Obtener datos existentes del día (para preservar la ubicación)
+                        const existingDay = data[currentProfile][eventDate] || { location: null, note: '' };
+                        
+                        const currentNote = existingDay.note || '';
                         const currentNoteLower = currentNote.toLowerCase();
+                        const summaryLower = summary.toLowerCase();
                         
-                        // 2. Comprobar duplicados e importar
+                        // 3. Comprobar duplicados e importar
                         if (!currentNoteLower.includes(summaryLower)) {
-                            // Usamos '\n' para el salto de línea real
-                            data[currentProfile][eventDate].note = (currentNote ? currentNote + '\n' + summary : summary).trim();
+                            // CRÍTICO: Preservar la ubicación existente del Excel
+                            data[currentProfile][eventDate] = {
+                                location: existingDay.location || null, // Mantener la ubicación del Excel
+                                note: (currentNote ? currentNote + '\n' + summary : summary).trim()
+                            };
                             eventsImported++;
-                            console.log(`✅ ¡IMPORTADO!: "${summary}" en ${eventDate}`);
+                            const locInfo = existingDay.location ? `(ubicación: ${existingDay.location})` : '(sin ubicación)';
+                            console.log(`✅ ¡IMPORTADO!: "${summary}" en ${eventDate} ${locInfo}`);
                         }
                     }
                 });
