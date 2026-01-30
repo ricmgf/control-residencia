@@ -65,7 +65,10 @@
         .user-btn.active { background: var(--white); color: #764ba2; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
 
         .legend {
-            position: sticky; top: 20px; z-index: 100;
+            position: -webkit-sticky;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
             background: var(--white);
             margin: -30px auto 30px;
             padding: 20px;
@@ -98,24 +101,27 @@
         .days-header { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-weight: 700; font-size: 0.8em; color: #b2bec3; margin-bottom: 10px; }
         .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
         .day { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-weight: 600; font-size: 0.9em; cursor: pointer; border: 1px solid #f1f2f6; position: relative; }
+        .day:hover { background-color: #f1f2f6; }
         .day.other-month { opacity: 0; pointer-events: none; }
 
-        .summary-badge { position: fixed; bottom: 30px; right: 30px; background: var(--madrid); padding: 20px; border-radius: 50%; width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(253, 203, 110, 0.4); font-weight: 700; }
-        .summary-label { font-size: 0.6em; text-transform: uppercase; }
+        .summary-badge {
+            position: fixed; bottom: 30px; right: 30px; background: var(--madrid); padding: 20px; border-radius: 50%; width: 60px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 10px 20px rgba(253, 203, 110, 0.4); font-weight: 700; z-index: 1000;
+        }
+        .summary-label { font-size: 0.6em; text-transform: uppercase; text-align: center; }
         .summary-val { font-size: 1.4em; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>Control de Residencia</h1>
-        <div class="status-bar"><span class="status-dot"></span><span id="syncText">Sincronizado</span></div>
+        <div class="status-bar"><span class="status-dot"></span><span id="syncStatusText">Esperando conexión...</span></div>
         <div class="user-selector">
-            <button class="user-btn active" onclick="setUser('Ricardo')">Ricardo</button>
-            <button class="user-btn" onclick="setUser('Sylvia')">Sylvia</button>
+            <button class="user-btn active" id="btnRicardo" onclick="setUser('Ricardo')">Ricardo</button>
+            <button class="user-btn" id="btnSylvia" onclick="setUser('Sylvia')">Sylvia</button>
         </div>
     </div>
 
-    <div class="legend">
+    <div class="legend" id="legendSelector">
         <div class="color-item selected" onclick="selectColor('--madrid', this)"><div class="dot" style="background: var(--madrid)"></div><span>Madrid</span></div>
         <div class="color-item" onclick="selectColor('--andratx', this)"><div class="dot" style="background: var(--andratx)"></div><span>Andratx</span></div>
         <div class="color-item" onclick="selectColor('--italia', this)"><div class="dot" style="background: var(--italia)"></div><span>Italia</span></div>
@@ -129,7 +135,7 @@
 
     <div class="year-nav">
         <button class="nav-btn" onclick="changeYear(-1)">❮</button>
-        <h2 id="currentYearDisplay">2026</h2>
+        <h2 id="yearDisplay">2026</h2>
         <button class="nav-btn" onclick="changeYear(1)">❯</button>
     </div>
 
@@ -137,7 +143,7 @@
 
     <div class="summary-badge">
         <span class="summary-label">🇪🇸 España</span>
-        <span class="summary-val" id="totalSpain">0</span>
+        <span class="summary-val" id="totalSpainCount">0</span>
     </div>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -152,17 +158,18 @@
         let currentUser = 'Ricardo';
         let selectedColorVar = '--madrid';
         
-        // CARGA CON TIMESTAMP PARA EVITAR CONFLICTOS
-        let fullData = JSON.parse(localStorage.getItem('travel_data_v2')) || {
-            lastUpdated: 0,
+        // Estructura de datos con Timestamp
+        let travelData = JSON.parse(localStorage.getItem('residence_tracker_v2')) || {
+            updatedAt: 0,
             days: {}
         };
 
-        function initGoogleAuth() {
+        function loadGoogleScripts() {
             gapi.load('client', async () => {
                 await gapi.client.init({
                     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
                 });
+                document.getElementById('syncStatusText').innerText = "Listo";
             });
 
             tokenClient = google.accounts.oauth2.initTokenClient({
@@ -170,13 +177,13 @@
                 scope: SCOPES,
                 callback: (resp) => {
                     if (resp.error) return;
-                    document.getElementById('syncText').innerText = "Conectado";
+                    document.getElementById('syncStatusText').innerText = "✅ Sincronizado";
                 },
             });
         }
 
         function handleGoogleAuth() {
-            if (tokenClient) tokenClient.requestAccessToken({prompt: 'consent'});
+            tokenClient.requestAccessToken({prompt: 'consent'});
         }
 
         function selectColor(colorVar, element) {
@@ -187,15 +194,14 @@
 
         function setUser(user) {
             currentUser = user;
-            document.querySelectorAll('.user-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.innerText === user);
-            });
+            document.getElementById('btnRicardo').classList.toggle('active', user === 'Ricardo');
+            document.getElementById('btnSylvia').classList.toggle('active', user === 'Sylvia');
             renderCalendar();
         }
 
         function changeYear(delta) {
             currentYear += delta;
-            document.getElementById('currentYearDisplay').innerText = currentYear;
+            document.getElementById('yearDisplay').innerText = currentYear;
             renderCalendar();
         }
 
@@ -229,22 +235,22 @@
                     day.className = 'day';
                     day.innerText = d;
                     
-                    if(fullData.days[dateKey]) {
-                        day.style.background = `var(${fullData.days[dateKey]})`;
+                    if(travelData.days[dateKey]) {
+                        day.style.background = `var(${travelData.days[dateKey]})`;
                         day.style.color = 'white';
                     }
 
                     day.onclick = () => {
-                        if(fullData.days[dateKey]) {
-                            delete fullData.days[dateKey];
+                        if(travelData.days[dateKey]) {
+                            delete travelData.days[dateKey];
                             day.style.background = '';
                             day.style.color = '';
                         } else {
-                            fullData.days[dateKey] = selectedColorVar;
+                            travelData.days[dateKey] = selectedColorVar;
                             day.style.background = `var(${selectedColorVar})`;
                             day.style.color = 'white';
                         }
-                        fullData.lastUpdated = Date.now(); // Actualiza marca de tiempo
+                        travelData.updatedAt = Date.now();
                         updateSummary();
                     };
                     grid.appendChild(day);
@@ -259,22 +265,22 @@
             let spainCount = 0;
             const spainColors = ['--madrid', '--andratx'];
             
-            Object.keys(fullData.days).forEach(key => {
+            Object.keys(travelData.days).forEach(key => {
                 if(key.endsWith(currentUser) && key.startsWith(currentYear)) {
-                    if(spainColors.includes(fullData.days[key])) spainCount++;
+                    if(spainColors.includes(travelData.days[key])) spainCount++;
                 }
             });
-            document.getElementById('totalSpain').innerText = spainCount;
+            document.getElementById('totalSpainCount').innerText = spainCount;
         }
 
         function saveToLocal() {
-            fullData.lastUpdated = Date.now();
-            localStorage.setItem('travel_data_v2', JSON.stringify(fullData));
-            alert("¡Datos guardados con éxito!");
+            travelData.updatedAt = Date.now();
+            localStorage.setItem('residence_tracker_v2', JSON.stringify(travelData));
+            alert("Guardado con éxito");
         }
 
         window.onload = () => {
-            initGoogleAuth();
+            loadGoogleScripts();
             renderCalendar();
         };
     </script>
