@@ -1105,9 +1105,133 @@
 
         .color-MAD { background-color: #FFEB3B; }
         .color-AND { background-color: #2196F3; }
-        .color-IT { background-color: #F44336; }
+        .color-IT { background-color: rgb(250, 182, 182); }
         .color-FR { background-color: #4CAF50; }
         .color-OTHER { background-color: rgb(223, 179, 245); }
+
+        /* Donut Chart Styles */
+        .annual-chart {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .chart-title {
+            font-weight: 600;
+            font-size: 1.2em;
+            margin-bottom: 25px;
+            color: #333;
+            text-align: center;
+        }
+
+        .donut-chart-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 25px;
+        }
+
+        .donut-chart {
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .donut-center {
+            width: 160px;
+            height: 160px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        .donut-days {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+            line-height: 1;
+        }
+
+        .donut-percentage {
+            font-size: 1.2em;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 4px;
+            margin-bottom: 2px;
+        }
+
+        .donut-label {
+            font-size: 0.85em;
+            color: #888;
+            font-weight: 500;
+        }
+
+        .chart-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            max-width: 600px;
+        }
+
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+
+        .chart-legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.1);
+        }
+
+        .chart-legend-text {
+            font-weight: 600;
+        }
+
+        .chart-legend-percentage {
+            color: #666;
+            font-weight: normal;
+        }
+
+        @media (max-width: 768px) {
+            .donut-chart {
+                width: 240px;
+                height: 240px;
+            }
+
+            .donut-center {
+                width: 140px;
+                height: 140px;
+            }
+
+            .donut-days {
+                font-size: 2em;
+            }
+
+            .donut-percentage {
+                font-size: 1em;
+            }
+
+            .chart-legend {
+                max-width: 100%;
+            }
+        }
 
         .hidden {
             display: none !important;
@@ -1164,7 +1288,7 @@
                         <span>Andratx</span>
                     </div>
                     <div class="legend-item" onclick="selectLocation('IT')" data-location="IT">
-                        <div class="legend-circle" style="background: #F44336;"></div>
+                        <div class="legend-circle" style="background: rgb(250, 182, 182);"></div>
                         <span>Italia</span>
                     </div>
                     <div class="legend-item" onclick="selectLocation('FR')" data-location="FR">
@@ -1187,6 +1311,22 @@
                     <div class="breakdown-title">📅 Resumen Mensual</div>
                     <div id="monthlyTable"></div>
                 </div>
+                
+                <!-- Donut Chart -->
+                <div class="annual-chart">
+                    <div class="chart-title">📊 Distribución Anual</div>
+                    <div class="donut-chart-container">
+                        <div class="donut-chart" id="donutChart">
+                            <div class="donut-center">
+                                <div class="donut-days" id="donutDays">0</div>
+                                <div class="donut-percentage" id="donutPercentage">0%</div>
+                                <div class="donut-label">España</div>
+                            </div>
+                        </div>
+                        <div class="chart-legend" id="chartLegend"></div>
+                    </div>
+                </div>
+                
                 <div class="actions">
                     <button class="action-btn" onclick="exportData()">💾 Exportar</button>
                     <button class="action-btn" onclick="importData()">📥 Importar</button>
@@ -1196,7 +1336,7 @@
     </div>
 
     <div class="floating-counter" id="floatingCounter" onclick="scrollToTable()" style="cursor: pointer;">
-        <div class="floating-label">🇪🇸 España</div>
+        <div class="floating-label">🇪🇸</div>
         <div class="floating-number" id="floatingNumber">0</div>
     </div>
 
@@ -1231,7 +1371,7 @@
         const LOCATIONS = {
             MAD: { name: 'Madrid', color: '#FFEB3B', emoji: '🟡' },
             AND: { name: 'Andratx', color: '#2196F3', emoji: '🔵' },
-            IT: { name: 'Italia', color: '#F44336', emoji: '🔴' },
+            IT: { name: 'Italia', color: 'rgb(250, 182, 182)', emoji: '🔴' },
             FR: { name: 'Francia', color: '#4CAF50', emoji: '🟢' },
             OTHER: { name: 'Trips', color: 'rgb(223, 179, 245)', emoji: '🟣' }
         };
@@ -2252,6 +2392,7 @@ async function loadDataFromSheets() {
             }
 
             updateMonthlyTable(monthlyCounts);
+            updateDonutChart(monthlyCounts);
         }
 
         function scrollToTable() {
@@ -2268,7 +2409,7 @@ async function loadDataFromSheets() {
             tableHTML += '<th>📅</th>';
             tableHTML += '<th><div class="table-circle" style="background: #FFEB3B;"></div><small>MAD</small></th>';
             tableHTML += '<th><div class="table-circle" style="background: #2196F3;"></div><small>AND</small></th>';
-            tableHTML += '<th><div class="table-circle" style="background: #F44336;"></div><small>IT</small></th>';
+            tableHTML += '<th><div class="table-circle" style="background: rgb(250, 182, 182);"></div><small>IT</small></th>';
             tableHTML += '<th><div class="table-circle" style="background: #4CAF50;"></div><small>FR</small></th>';
             tableHTML += '<th><div class="table-circle" style="background: rgb(223, 179, 245);"></div><small>TRP</small></th>';
             tableHTML += '<th>🇪🇸</th>';
@@ -2317,6 +2458,82 @@ async function loadDataFromSheets() {
             monthlyTable.innerHTML = tableHTML;
             
             document.getElementById('floatingNumber').textContent = yearSpain;
+        }
+
+        function updateDonutChart(monthlyCounts) {
+            // Calcular totales anuales
+            let yearTotals = { MAD: 0, AND: 0, IT: 0, FR: 0, OTHER: 0 };
+            
+            for (let m = 0; m < 12; m++) {
+                yearTotals.MAD += monthlyCounts[m].MAD || 0;
+                yearTotals.AND += monthlyCounts[m].AND || 0;
+                yearTotals.IT += monthlyCounts[m].IT || 0;
+                yearTotals.FR += monthlyCounts[m].FR || 0;
+                yearTotals.OTHER += monthlyCounts[m].OTHER || 0;
+            }
+
+            const yearSpain = yearTotals.MAD + yearTotals.AND;
+            const totalDays = 365; // o 366 si es año bisiesto
+            const spainPercentage = Math.round((yearSpain / totalDays) * 100);
+
+            // Actualizar centro del donut
+            document.getElementById('donutDays').textContent = yearSpain;
+            document.getElementById('donutPercentage').textContent = `${spainPercentage}%`;
+
+            // Calcular porcentajes para cada ubicación
+            const locationPercentages = {
+                MAD: Math.round((yearTotals.MAD / totalDays) * 100),
+                AND: Math.round((yearTotals.AND / totalDays) * 100),
+                IT: Math.round((yearTotals.IT / totalDays) * 100),
+                FR: Math.round((yearTotals.FR / totalDays) * 100),
+                OTHER: Math.round((yearTotals.OTHER / totalDays) * 100)
+            };
+
+            // Crear gradiente cónico para el donut
+            let gradientStops = [];
+            let currentAngle = 0;
+
+            Object.keys(LOCATIONS).forEach(loc => {
+                const days = yearTotals[loc];
+                if (days > 0) {
+                    const angle = (days / totalDays) * 360;
+                    gradientStops.push(`${LOCATIONS[loc].color} ${currentAngle}deg ${currentAngle + angle}deg`);
+                    currentAngle += angle;
+                }
+            });
+
+            const donutChart = document.getElementById('donutChart');
+            if (gradientStops.length > 0) {
+                donutChart.style.background = `conic-gradient(${gradientStops.join(', ')})`;
+            } else {
+                donutChart.style.background = '#f0f0f0';
+            }
+
+            // Actualizar leyenda
+            const legend = document.getElementById('chartLegend');
+            legend.innerHTML = '';
+
+            Object.keys(LOCATIONS).forEach(loc => {
+                const item = document.createElement('div');
+                item.className = 'chart-legend-item';
+                
+                const color = document.createElement('div');
+                color.className = 'chart-legend-color';
+                color.style.background = LOCATIONS[loc].color;
+                
+                const text = document.createElement('span');
+                text.className = 'chart-legend-text';
+                text.textContent = LOCATIONS[loc].name;
+                
+                const percentage = document.createElement('span');
+                percentage.className = 'chart-legend-percentage';
+                percentage.textContent = ` ${locationPercentages[loc]}%`;
+                
+                item.appendChild(color);
+                item.appendChild(text);
+                item.appendChild(percentage);
+                legend.appendChild(item);
+            });
         }
 
         function exportData() {
