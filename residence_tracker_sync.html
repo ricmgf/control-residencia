@@ -972,16 +972,19 @@
             position: fixed;
             top: 0;
             left: 0;
+            right: 0;
+            bottom: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
+            background: rgba(0,0,0,0.6);
+            z-index: 9999;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
         }
 
         .modal.active {
-            display: flex;
+            display: flex !important;
         }
 
         .modal-content {
@@ -992,6 +995,8 @@
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
 
         .modal-header {
@@ -1207,7 +1212,7 @@
             AND: { name: 'Andratx', color: '#2196F3', emoji: '🔵' },
             IT: { name: 'Italia', color: '#F44336', emoji: '🔴' },
             FR: { name: 'Francia', color: '#4CAF50', emoji: '🟢' },
-            OTHER: { name: 'Other', color: '#9C27B0', emoji: '🟣' }
+            OTHER: { name: 'Other', color: 'rgb(223, 179, 245)', emoji: '🟣' }
         };
 
         const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
@@ -2101,28 +2106,17 @@ async function loadDataFromSheets() {
             const { year, month, day } = currentEditDay;
             const noteInput = document.getElementById('noteInput');
             
-            // Convertir HTML a formato con tags
+            // Obtener HTML y convertir spans a tags
             let html = noteInput.innerHTML;
-            // Reemplazar spans con data-color por tags
-            html = html.replace(/<span[^>]*data-color="red"[^>]*>(.*?)<\/span>/g, '<r>$1</r>');
-            html = html.replace(/<span[^>]*data-color="black"[^>]*>(.*?)<\/span>/g, '<b>$1</b>');
-            // Limpiar HTML extra (divs, brs, etc)
-            html = html.replace(/<div>/g, '\n').replace(/<\/div>/g, '').replace(/<br>/g, '\n');
-            // Limpiar otros tags HTML
+            
+            // Convertir spans con colores a tags
+            html = html.replace(/<span[^>]*data-color="red"[^>]*>(.*?)<\/span>/gi, '<r>$1</r>');
+            html = html.replace(/<span[^>]*data-color="black"[^>]*>(.*?)<\/span>/gi, '<b>$1</b>');
+            
+            // Extraer solo texto (sin otros tags HTML)
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;
-            let note = tempDiv.textContent || tempDiv.innerText || '';
-            
-            // Pero mantener nuestros tags de color
-            html = noteInput.innerHTML;
-            const colorMatches = html.matchAll(/<span[^>]*data-color="(red|black)"[^>]*>(.*?)<\/span>/g);
-            for (const match of colorMatches) {
-                const color = match[1];
-                const text = match[2];
-                const tag = color === 'red' ? '<r>' : '<b>';
-                const closeTag = color === 'red' ? '</r>' : '</b>';
-                note = note.replace(text, tag + text + closeTag);
-            }
+            const note = tempDiv.textContent || tempDiv.innerText || '';
             
             const key = getDayKey(year, month, day);
             
@@ -2132,7 +2126,7 @@ async function loadDataFromSheets() {
             data[currentProfile][key].note = note;
             data[currentProfile][key].timestamp = Date.now();
             
-            closeModal(); // Cerrar ANTES de guardar
+            closeModal();
             scheduleAutoSave();
             renderCalendar();
         }
