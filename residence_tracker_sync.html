@@ -972,10 +972,10 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0,0,0,0.7);
-            z-index: 99999;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.75);
+            z-index: 100000;
             align-items: center;
             justify-content: center;
         }
@@ -986,13 +986,13 @@
 
         .modal-content {
             background: white;
-            border-radius: 15px;
-            padding: 25px;
+            border-radius: 20px;
+            padding: 30px;
             width: 90%;
-            max-width: 450px;
-            max-height: 85vh;
+            max-width: 500px;
+            max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.5);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
 
         .modal-header {
@@ -2050,19 +2050,23 @@ async function loadDataFromSheets() {
             const noteInput = document.getElementById('noteInput');
             noteInput.innerHTML = noteHtml;
             
-            // Abrir modal
-            document.getElementById('noteModal').classList.add('active');
+            // ABRIR modal
+            const modal = document.getElementById('noteModal');
+            modal.style.display = 'flex';
+            modal.classList.add('active');
             
-            // Bloquear scroll del body
+            // Bloquear scroll
             document.body.style.overflow = 'hidden';
             
-            // Focus sin provocar scroll
-            setTimeout(() => noteInput.focus(), 50);
+            // Focus
+            setTimeout(() => noteInput.focus(), 100);
         }
 
         function closeModal() {
-            document.getElementById('noteModal').classList.remove('active');
-            document.body.style.overflow = '';
+            const modal = document.getElementById('noteModal');
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
             currentEditDay = null;
         }
 
@@ -2105,7 +2109,7 @@ async function loadDataFromSheets() {
                 const { year, month, day } = currentEditDay;
                 const noteInput = document.getElementById('noteInput');
                 
-                // Obtener HTML y convertir spans a tags
+                // Procesar HTML a tags
                 let html = noteInput.innerHTML;
                 html = html.replace(/<span[^>]*data-color="red"[^>]*>(.*?)<\/span>/gi, '<r>$1</r>');
                 html = html.replace(/<span[^>]*data-color="black"[^>]*>(.*?)<\/span>/gi, '<b>$1</b>');
@@ -2113,7 +2117,7 @@ async function loadDataFromSheets() {
                 
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = html;
-                const note = tempDiv.innerHTML.trim();
+                const note = tempDiv.innerText.trim(); // innerText limpia mejor
                 
                 const key = getDayKey(year, month, day);
                 if (!data[currentProfile][key]) {
@@ -2122,16 +2126,17 @@ async function loadDataFromSheets() {
                 data[currentProfile][key].note = note;
                 data[currentProfile][key].timestamp = Date.now();
                 
-                // SIEMPRE cerrar primero
-                closeModal();
+                // Backup local
+                localStorage.setItem('residenceData', JSON.stringify(data));
                 
-                // Luego actualizar
+                // CERRAR Y ACTUALIZAR
+                closeModal();
                 renderCalendar();
                 scheduleAutoSave();
                 
-            } catch (error) {
-                console.error('Error en saveNote:', error);
-                closeModal(); // Cerrar incluso si hay error
+            } catch (err) {
+                console.error('Error:', err);
+                closeModal();
             }
         }
 
