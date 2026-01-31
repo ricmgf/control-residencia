@@ -1015,6 +1015,16 @@
             font-size: 1em;
             margin-bottom: 20px;
         }
+        
+        .modal-input[contenteditable]:empty:before {
+            content: attr(data-placeholder);
+            color: #999;
+        }
+        
+        .modal-input[contenteditable]:focus {
+            border-color: #667eea;
+            outline: none;
+        }
 
         .modal-buttons {
             display: flex;
@@ -1172,10 +1182,10 @@
             <div class="modal-header" id="modalHeader">Editar Día</div>
             <div class="modal-label">Nota / Evento:</div>
             <div class="format-buttons" style="margin-bottom: 8px; display: flex; gap: 8px;">
-                <button type="button" class="format-btn" onclick="applyFormat('black')" style="background: #000; color: #fff; padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Negro</button>
-                <button type="button" class="format-btn" onclick="applyFormat('red')" style="background: rgb(224, 22, 39); color: #fff; padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Rojo</button>
+                <button type="button" class="format-btn" onclick="applyFormat('black')" style="background: #000; color: #fff; padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">⬛ Negro</button>
+                <button type="button" class="format-btn" onclick="applyFormat('red')" style="background: rgb(224, 22, 39); color: #fff; padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">🟥 Rojo</button>
             </div>
-            <textarea class="modal-input" id="noteInput" rows="4" placeholder="Ej: Reunión con cliente, Vuelo a Madrid..."></textarea>
+            <div class="modal-input" id="noteInput" contenteditable="true" style="min-height: 80px; max-height: 200px; overflow-y: auto; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-family: inherit; font-size: 1em; line-height: 1.4; outline: none;" data-placeholder="Ej: Reunión con cliente, Vuelo a Madrid..."></div>
             <div class="modal-buttons">
                 <button class="modal-btn secondary" onclick="closeModal()">Cancelar</button>
                 <button class="modal-btn primary" onclick="saveNote()">Guardar</button>
@@ -2031,55 +2041,99 @@ async function loadDataFromSheets() {
             const dateStr = `${day} de ${MONTHS[month]} ${year}`;
             
             document.getElementById('modalHeader').textContent = `📝 ${dateStr}`;
-            document.getElementById('noteInput').value = dayData.note || '';
+            
+            // Convertir tags a HTML con colores para mostrar
+            let noteHtml = (dayData.note || '')
+                .replace(/<r>(.*?)<\/r>/g, '<span style="color: rgb(224, 22, 39);" data-color="red">$1</span>')
+                .replace(/<b>(.*?)<\/b>/g, '<span style="color: #000;" data-color="black">$1</span>');
+            
+            const noteInput = document.getElementById('noteInput');
+            noteInput.innerHTML = noteHtml;
+            
             document.getElementById('noteModal').classList.add('active');
-            document.getElementById('noteInput').focus();
+            noteInput.focus();
+            
+            // Prevenir scroll
+            document.body.style.overflow = 'hidden';
         }
 
         function closeModal() {
             document.getElementById('noteModal').classList.remove('active');
+            document.body.style.overflow = ''; // Restaurar scroll
             currentEditDay = null;
         }
 
         function applyFormat(color) {
-            const textarea = document.getElementById('noteInput');
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const selectedText = textarea.value.substring(start, end);
+            const noteInput = document.getElementById('noteInput');
+            const selection = window.getSelection();
+            
+            if (!selection.rangeCount || selection.isCollapsed) {
+                alert('Selecciona el texto que quieres colorear');
+                return;
+            }
+            
+            const range = selection.getRangeAt(0);
+            const selectedText = range.toString();
             
             if (selectedText.length === 0) {
                 alert('Selecciona el texto que quieres colorear');
                 return;
             }
             
-            // Envolver texto con marcador de color
-            const colorTag = color === 'red' ? '<r>' : '<b>';
-            const closeTag = color === 'red' ? '</r>' : '</b>';
-            const formattedText = colorTag + selectedText + closeTag;
+            // Crear span con color
+            const span = document.createElement('span');
+            span.style.color = color === 'red' ? 'rgb(224, 22, 39)' : '#000';
+            span.setAttribute('data-color', color);
+            span.textContent = selectedText;
             
-            // Reemplazar texto seleccionado
-            textarea.value = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
+            // Reemplazar selección con span
+            range.deleteContents();
+            range.insertNode(span);
             
-            // Mover cursor después del texto insertado
-            textarea.selectionStart = textarea.selectionEnd = start + formattedText.length;
-            textarea.focus();
+            // Limpiar selección
+            selection.removeAllRanges();
+            noteInput.focus();
         }
 
         function saveNote() {
             if (!currentEditDay) return;
             
             const { year, month, day } = currentEditDay;
-            const note = document.getElementById('noteInput').value;
+            const noteInput = document.getElementById('noteInput');
+            
+            // Convertir HTML a formato con tags
+            let html = noteInput.innerHTML;
+            // Reemplazar spans con data-color por tags
+            html = html.replace(/<span[^>]*data-color="red"[^>]*>(.*?)<\/span>/g, '<r>$1</r>');
+            html = html.replace(/<span[^>]*data-color="black"[^>]*>(.*?)<\/span>/g, '<b>$1</b>');
+            // Limpiar HTML extra (divs, brs, etc)
+            html = html.replace(/<div>/g, '\n').replace(/<\/div>/g, '').replace(/<br>/g, '\n');
+            // Limpiar otros tags HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            let note = tempDiv.textContent || tempDiv.innerText || '';
+            
+            // Pero mantener nuestros tags de color
+            html = noteInput.innerHTML;
+            const colorMatches = html.matchAll(/<span[^>]*data-color="(red|black)"[^>]*>(.*?)<\/span>/g);
+            for (const match of colorMatches) {
+                const color = match[1];
+                const text = match[2];
+                const tag = color === 'red' ? '<r>' : '<b>';
+                const closeTag = color === 'red' ? '</r>' : '</b>';
+                note = note.replace(text, tag + text + closeTag);
+            }
+            
             const key = getDayKey(year, month, day);
             
             if (!data[currentProfile][key]) {
                 data[currentProfile][key] = { location: null, note: '', timestamp: Date.now() };
             }
             data[currentProfile][key].note = note;
-            data[currentProfile][key].timestamp = Date.now(); // Actualizar timestamp
+            data[currentProfile][key].timestamp = Date.now();
             
-            scheduleAutoSave(); // Usar debounce también aquí
-            closeModal();
+            closeModal(); // Cerrar ANTES de guardar
+            scheduleAutoSave();
             renderCalendar();
         }
 
