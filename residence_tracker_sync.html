@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Version: 2025-01-30-22:30 -->
+<!-- Version: 2026-01-30-FINAL-v3 -->
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -2103,20 +2103,31 @@ async function loadDataFromSheets() {
         function saveNote() {
             if (!currentEditDay) return;
             
+            console.log('🔵 saveNote llamado');
+            
             const { year, month, day } = currentEditDay;
             const noteInput = document.getElementById('noteInput');
             
-            // Obtener HTML y convertir spans a tags
+            // Obtener HTML
             let html = noteInput.innerHTML;
+            console.log('HTML original:', html);
             
-            // Convertir spans con colores a tags
+            // Convertir spans con colores a nuestros tags
             html = html.replace(/<span[^>]*data-color="red"[^>]*>(.*?)<\/span>/gi, '<r>$1</r>');
             html = html.replace(/<span[^>]*data-color="black"[^>]*>(.*?)<\/span>/gi, '<b>$1</b>');
             
-            // Extraer solo texto (sin otros tags HTML)
+            // Limpiar otros tags HTML pero mantener <r> y <b>
+            html = html.replace(/<div>/gi, '').replace(/<\/div>/gi, '\n').replace(/<br\s*\/?>/gi, '\n');
+            
+            // Extraer texto limpio (esto preserva <r> y <b> porque son texto, no elementos)
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;
-            const note = tempDiv.textContent || tempDiv.innerText || '';
+            let note = tempDiv.innerHTML; // Usar innerHTML en lugar de textContent
+            
+            // Limpiar espacios extra
+            note = note.trim().replace(/\n\n+/g, '\n');
+            
+            console.log('Nota final:', note);
             
             const key = getDayKey(year, month, day);
             
@@ -2126,8 +2137,11 @@ async function loadDataFromSheets() {
             data[currentProfile][key].note = note;
             data[currentProfile][key].timestamp = Date.now();
             
+            console.log('✅ Cerrando modal...');
             closeModal();
+            console.log('✅ Guardando...');
             scheduleAutoSave();
+            console.log('✅ Renderizando...');
             renderCalendar();
         }
 
