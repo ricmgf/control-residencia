@@ -1079,7 +1079,7 @@
         .color-AND { background-color: #2196F3; }
         .color-IT { background-color: #F44336; }
         .color-FR { background-color: #4CAF50; }
-        .color-OTHER { background-color: #9C27B0; }
+        .color-OTHER { background-color: rgb(223, 179, 245); }
 
         .hidden {
             display: none !important;
@@ -1171,6 +1171,10 @@
         <div class="modal-content">
             <div class="modal-header" id="modalHeader">Editar Día</div>
             <div class="modal-label">Nota / Evento:</div>
+            <div class="format-buttons" style="margin-bottom: 8px; display: flex; gap: 8px;">
+                <button type="button" class="format-btn" onclick="applyFormat('black')" style="background: #000; color: #fff; padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Negro</button>
+                <button type="button" class="format-btn" onclick="applyFormat('red')" style="background: rgb(224, 22, 39); color: #fff; padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Rojo</button>
+            </div>
             <textarea class="modal-input" id="noteInput" rows="4" placeholder="Ej: Reunión con cliente, Vuelo a Madrid..."></textarea>
             <div class="modal-buttons">
                 <button class="modal-btn secondary" onclick="closeModal()">Cancelar</button>
@@ -1961,9 +1965,14 @@ async function loadDataFromSheets() {
                         const note = document.createElement('div');
                         note.className = 'day-note';
                         note.setAttribute('style', 'font-size: 0.6em; line-height: 1.1; margin-top: 2px; text-align: center; word-break: break-word; color: #333; font-weight: 700; max-height: 3em; overflow: hidden; cursor: help;');
-                        note.textContent = dayData.note;
-                        // TOOLTIP: Mostrar texto completo al pasar el ratón
-                        note.title = dayData.note;
+                        
+                        // Procesar marcadores de color
+                        let html = dayData.note
+                            .replace(/<r>(.*?)<\/r>/g, '<span style="color: rgb(224, 22, 39);">$1</span>')
+                            .replace(/<b>(.*?)<\/b>/g, '<span style="color: #000;">$1</span>');
+                        
+                        note.innerHTML = html;
+                        note.title = dayData.note.replace(/<\/?[rb]>/g, ''); // Tooltip sin tags
                         dayCell.appendChild(note);
                     }
 
@@ -2030,6 +2039,30 @@ async function loadDataFromSheets() {
         function closeModal() {
             document.getElementById('noteModal').classList.remove('active');
             currentEditDay = null;
+        }
+
+        function applyFormat(color) {
+            const textarea = document.getElementById('noteInput');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+            
+            if (selectedText.length === 0) {
+                alert('Selecciona el texto que quieres colorear');
+                return;
+            }
+            
+            // Envolver texto con marcador de color
+            const colorTag = color === 'red' ? '<r>' : '<b>';
+            const closeTag = color === 'red' ? '</r>' : '</b>';
+            const formattedText = colorTag + selectedText + closeTag;
+            
+            // Reemplazar texto seleccionado
+            textarea.value = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
+            
+            // Mover cursor después del texto insertado
+            textarea.selectionStart = textarea.selectionEnd = start + formattedText.length;
+            textarea.focus();
         }
 
         function saveNote() {
