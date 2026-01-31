@@ -980,8 +980,6 @@
             }
         }
 
-        }
-
         .modal {
             display: none;
             position: fixed;
@@ -1171,7 +1169,7 @@
                     </div>
                     <div class="legend-item" onclick="selectLocation('OTHER')" data-location="OTHER">
                         <div class="legend-circle" style="background: rgb(223, 179, 245);"></div>
-                        <span>Other</span>
+                        <span>Trips</span>
                     </div>
                 </div>
 
@@ -1231,7 +1229,7 @@
             AND: { name: 'Andratx', color: '#2196F3', emoji: '🔵' },
             IT: { name: 'Italia', color: '#F44336', emoji: '🔴' },
             FR: { name: 'Francia', color: '#4CAF50', emoji: '🟢' },
-            OTHER: { name: 'Other', color: 'rgb(223, 179, 245)', emoji: '🟣' }
+            OTHER: { name: 'Trips', color: 'rgb(223, 179, 245)', emoji: '🟣' }
         };
 
         const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
@@ -2128,15 +2126,25 @@ async function loadDataFromSheets() {
                 const { year, month, day } = currentEditDay;
                 const noteInput = document.getElementById('noteInput');
                 
-                // Procesar HTML a tags
+                // Procesar HTML a tags personalizados
                 let html = noteInput.innerHTML;
+                
+                // Convertir spans con data-color a tags personalizados
                 html = html.replace(/<span[^>]*data-color="red"[^>]*>(.*?)<\/span>/gi, '<r>$1</r>');
                 html = html.replace(/<span[^>]*data-color="black"[^>]*>(.*?)<\/span>/gi, '<b>$1</b>');
+                
+                // Limpiar otros tags HTML pero mantener <r> y <b>
                 html = html.replace(/<div>/gi, '').replace(/<\/div>/gi, '\n').replace(/<br\s*\/?>/gi, '\n');
                 
+                // Crear div temporal para extraer el contenido
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = html;
-                const note = tempDiv.innerText.trim(); // innerText limpia mejor
+                
+                // Obtener texto plano con tags preservados
+                let note = tempDiv.innerHTML.trim();
+                
+                // Limpiar saltos de línea múltiples
+                note = note.replace(/\n\s*\n/g, '\n').trim();
                 
                 const key = getDayKey(year, month, day);
                 if (!data[currentProfile][key]) {
@@ -2211,7 +2219,7 @@ async function loadDataFromSheets() {
                     { loc: 'AND', days: and, label: 'AND', title: `Andratx: ${and} días` },
                     { loc: 'IT', days: it, label: 'IT', title: `Italia: ${it} días` },
                     { loc: 'FR', days: fr, label: 'FR', title: `Francia: ${fr} días` },
-                    { loc: 'OTHER', days: other, label: 'OTH', title: `Other: ${other} días` }
+                    { loc: 'OTHER', days: other, label: 'TRP', title: `Trips: ${other} días` }
                 ];
 
                 segments.forEach(seg => {
@@ -2257,7 +2265,7 @@ async function loadDataFromSheets() {
             tableHTML += '<th><div class="table-circle" style="background: #2196F3;"></div><small>AND</small></th>';
             tableHTML += '<th><div class="table-circle" style="background: #F44336;"></div><small>IT</small></th>';
             tableHTML += '<th><div class="table-circle" style="background: #4CAF50;"></div><small>FR</small></th>';
-            tableHTML += '<th><div class="table-circle" style="background: rgb(223, 179, 245);"></div><small>OTH</small></th>';
+            tableHTML += '<th><div class="table-circle" style="background: rgb(223, 179, 245);"></div><small>TRP</small></th>';
             tableHTML += '<th>🇪🇸<small>ES</small></th>';
             tableHTML += '</tr></thead><tbody>';
 
