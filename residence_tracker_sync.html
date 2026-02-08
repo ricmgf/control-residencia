@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Version: 2026-02-08-v2 - iPhone UX optimization -->
+<!-- Version: 2026-02-08-v3 - iPhone UX fixes -->
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -364,17 +364,18 @@
         }
 
         .day-note {
-            font-size: 0.55em;
+            font-size: 0.6em;
             color: #333;
             text-align: center;
             line-height: 1.1;
-            max-height: 16px;
+            max-height: 3em;
             overflow: hidden;
             text-overflow: ellipsis;
             font-weight: 700;
-            margin-top: auto;
+            margin-top: 2px;
             padding-top: 1px;
             word-break: break-word;
+            cursor: help;
         }
 
         .holiday-note {
@@ -1020,12 +1021,13 @@
             }
 
             .day-cell {
-                aspect-ratio: 1;
-                min-height: unset;
-                padding: 2px 1px;
+                aspect-ratio: unset;
+                min-height: 38px;
+                padding: 3px 1px;
                 border-width: 1.5px;
                 border-radius: 4px;
                 transition: none;
+                justify-content: center;
             }
 
             .day-cell:hover {
@@ -1039,7 +1041,7 @@
             }
 
             .day-number {
-                font-size: 0.72em;
+                font-size: 0.78em;
                 margin-bottom: 0;
             }
 
@@ -1050,10 +1052,14 @@
 
             .holiday-note {
                 font-size: 0.38em;
-                height: 12px;
-                padding: 1px 1px;
+                height: auto;
+                max-height: 11px;
+                padding: 0 1px;
                 line-height: 1.1;
-                margin-top: 0;
+                margin-top: 1px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
 
             /* Notes: show as tiny dot on mobile */
@@ -1063,25 +1069,15 @@
                 height: 4px !important;
                 min-height: 0 !important;
                 max-height: 4px !important;
-                background: rgba(0,0,0,0.35);
+                background: rgba(0,0,0,0.4);
                 border-radius: 50%;
                 overflow: hidden;
-                margin-top: auto;
+                margin: 0 !important;
                 padding: 0 !important;
                 line-height: 0 !important;
                 position: absolute;
                 bottom: 2px;
                 right: 2px;
-            }
-
-            /* Long press hint */
-            .longpress-hint {
-                text-align: center;
-                font-size: 0.6em;
-                color: #bbb;
-                padding: 3px 0;
-                font-style: italic;
-                display: block;
             }
 
             /* --- Floating counter compact --- */
@@ -1102,23 +1098,25 @@
             }
 
             /* --- Mobile Modal Full-Screen --- */
-            .modal {
-                align-items: flex-end;
-                background: rgba(0,0,0,0.4);
+            .modal.active {
+                display: flex !important;
+                align-items: stretch !important;
+                justify-content: stretch !important;
             }
 
             .modal-content {
-                width: 100%;
-                max-width: 100%;
-                max-height: 100vh;
-                height: 100vh;
-                border-radius: 0;
-                padding: 0;
-                display: flex;
-                flex-direction: column;
-                box-shadow: none;
+                width: 100% !important;
+                max-width: 100% !important;
+                max-height: 100% !important;
+                height: 100% !important;
+                border-radius: 0 !important;
+                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                box-shadow: none !important;
                 animation: modalSlideUp 0.3s ease-out;
-                background: #f5f5f7;
+                background: #f5f5f7 !important;
+                overflow-y: auto;
             }
 
             @keyframes modalSlideUp {
@@ -1138,37 +1136,24 @@
             }
 
             .modal-header {
-                font-size: 1em;
+                font-size: 1.05em;
                 text-align: center;
                 flex: 1;
-                order: 2;
-            }
-
-            .modal-checkbox-container {
-                order: 3;
             }
 
             .modal-checkbox-label {
                 font-size: 0.8em;
             }
 
-            /* Mobile modal scrollable body */
-            .modal-content > .date-range-section,
-            .modal-content > .modal-label,
-            .modal-content > .format-buttons,
-            .modal-content > .modal-input,
-            .modal-content > .modal-buttons {
-                padding-left: 16px;
-                padding-right: 16px;
-            }
-
+            /* Modal body sections */
             .modal-content .date-range-section {
-                margin: 12px 16px;
+                margin: 12px 12px;
                 border-radius: 12px;
             }
 
             .modal-content .modal-label {
-                margin: 0 16px 8px;
+                margin-left: 16px;
+                margin-right: 16px;
                 font-size: 0.75em;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
@@ -1176,12 +1161,14 @@
             }
 
             .modal-content .format-buttons {
-                margin: 0 16px 8px;
+                margin-left: 16px;
+                margin-right: 16px;
             }
 
             .modal-content #noteInput {
-                margin: 0 16px 16px;
-                width: calc(100% - 32px);
+                margin-left: 12px;
+                margin-right: 12px;
+                width: calc(100% - 24px) !important;
                 border-radius: 12px;
                 background: white;
                 min-height: 100px;
@@ -1206,7 +1193,7 @@
 
             /* Date range pickers side by side on mobile */
             .date-range-pickers {
-                flex-direction: row;
+                flex-direction: row !important;
                 gap: 8px;
             }
 
@@ -2636,7 +2623,6 @@ async function loadDataFromSheets() {
                     if (dayData.note) {
                         const note = document.createElement('div');
                         note.className = 'day-note';
-                        note.setAttribute('style', 'font-size: 0.6em; line-height: 1.1; margin-top: 2px; text-align: center; word-break: break-word; color: #333; font-weight: 700; max-height: 3em; overflow: hidden; cursor: help;');
                         
                         // Procesar marcadores de color
                         let html = dayData.note
