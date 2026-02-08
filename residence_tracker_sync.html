@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Version: 2026-02-08-v3 - iPhone UX fixes -->
+<!-- Version: 2026-02-08-v4 - Short holiday labels, single dropdown date picker, iPhone fixes -->
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1191,11 +1191,6 @@
                 border-radius: 10px;
             }
 
-            /* Date range pickers side by side on mobile */
-            .date-range-pickers {
-                flex-direction: row !important;
-                gap: 8px;
-            }
 
             .date-range-header {
                 font-size: 0.7em;
@@ -1541,29 +1536,65 @@
             letter-spacing: 0.5px;
         }
 
-        .date-range-pickers {
+        .date-range-fields {
             display: flex;
-            gap: 12px;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
         }
 
-        @media (min-width: 431px) and (max-width: 500px) {
-            .date-range-pickers {
-                flex-direction: column;
-                gap: 10px;
-            }
+        .date-field {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 100px;
         }
 
-        .date-picker-col {
-            flex: 1;
-            min-width: 0;
+        .date-field:hover {
+            border-color: #667eea;
         }
 
-        .date-picker-label {
-            font-size: 0.8em;
-            font-weight: 600;
+        .date-field.active {
+            border-color: #667eea;
+            background: #f0f2ff;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+
+        .date-field-label {
+            font-size: 0.65em;
+            font-weight: 700;
             color: #667eea;
-            margin-bottom: 6px;
-            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .date-field-value {
+            font-size: 0.9em;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .date-field-arrow {
+            color: #bbb;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .mini-cal-dropdown {
+            margin-top: 10px;
+            animation: calDropIn 0.2s ease-out;
+        }
+
+        @keyframes calDropIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .mini-cal {
@@ -1804,17 +1835,21 @@
             <!-- Date Range Section -->
             <div class="date-range-section">
                 <div class="date-range-header">📅 Rango de fechas (opcional)</div>
-                <div class="date-range-pickers">
-                    <div class="date-picker-col">
-                        <div class="date-picker-label">Desde</div>
-                        <div class="mini-cal" id="miniCalFrom"></div>
+                <div class="date-range-fields">
+                    <div class="date-field" id="dateFieldFrom" onclick="toggleDatePicker('from')">
+                        <span class="date-field-label">Desde</span>
+                        <span class="date-field-value" id="dateFieldFromValue">—</span>
                     </div>
-                    <div class="date-picker-col">
-                        <div class="date-picker-label">Hasta</div>
-                        <div class="mini-cal" id="miniCalTo"></div>
+                    <span class="date-field-arrow">→</span>
+                    <div class="date-field" id="dateFieldTo" onclick="toggleDatePicker('to')">
+                        <span class="date-field-label">Hasta</span>
+                        <span class="date-field-value" id="dateFieldToValue">—</span>
                     </div>
                 </div>
                 <div class="date-range-summary" id="dateRangeSummary"></div>
+                <div class="mini-cal-dropdown" id="miniCalDropdown" style="display:none;">
+                    <div class="mini-cal" id="miniCalActive"></div>
+                </div>
             </div>
             
             <div class="modal-label">Nota / Evento:</div>
@@ -1873,6 +1908,7 @@
         let dateRangeTo = null;   // {year, month, day}
         let miniCalFromMonth = null; // {year, month} for navigation
         let miniCalToMonth = null;   // {year, month} for navigation
+        let activeDatePicker = null; // 'from' or 'to' or null
         let tokenClient;
         let accessToken = null;
         let lastCalendarSync = null;
@@ -1991,11 +2027,11 @@
             const isItaly = !!italyHolidays[key];
             
             if (isSpain && isItaly) {
-                return 'Festivo ES/IT';
+                return 'ES/IT';
             } else if (isSpain) {
-                return 'Festivo ES';
+                return 'ES';
             } else if (isItaly) {
-                return 'Festivo IT';
+                return 'IT';
             }
             
             return null;
@@ -2736,10 +2772,11 @@ async function loadDataFromSheets() {
             dateRangeTo = { year, month, day };
             miniCalFromMonth = { year, month };
             miniCalToMonth = { year, month };
+            activeDatePicker = null;
             
-            // Render mini calendars
-            renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
-            renderMiniCal('miniCalTo', miniCalToMonth, 'to');
+            // Update date field display values
+            updateDateFieldValues();
+            closeDatePicker();
             updateDateRangeSummary();
             
             // Convertir tags a HTML
@@ -2890,46 +2927,89 @@ async function loadDataFromSheets() {
         }
         
         // ===============================
-        // MINI CALENDAR RENDERING
+        // DATE PICKER (single dropdown)
         // ===============================
         
-        function renderMiniCal(containerId, calMonth, type) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
+        function toggleDatePicker(type) {
+            // If already open for this type, close it
+            if (activeDatePicker === type) {
+                closeDatePicker();
+                return;
+            }
             
+            activeDatePicker = type;
+            
+            // Highlight active field
+            document.getElementById('dateFieldFrom').classList.toggle('active', type === 'from');
+            document.getElementById('dateFieldTo').classList.toggle('active', type === 'to');
+            
+            // Set the month to show based on current selection
+            const currentSel = type === 'from' ? dateRangeFrom : dateRangeTo;
+            if (type === 'from') {
+                miniCalFromMonth = { year: currentSel.year, month: currentSel.month };
+            } else {
+                miniCalToMonth = { year: currentSel.year, month: currentSel.month };
+            }
+            
+            // Show and render the dropdown calendar
+            document.getElementById('miniCalDropdown').style.display = 'block';
+            renderMiniCal();
+        }
+        
+        function closeDatePicker() {
+            activeDatePicker = null;
+            document.getElementById('miniCalDropdown').style.display = 'none';
+            const fromField = document.getElementById('dateFieldFrom');
+            const toField = document.getElementById('dateFieldTo');
+            if (fromField) fromField.classList.remove('active');
+            if (toField) toField.classList.remove('active');
+        }
+        
+        function updateDateFieldValues() {
+            const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const fromEl = document.getElementById('dateFieldFromValue');
+            const toEl = document.getElementById('dateFieldToValue');
+            if (fromEl && dateRangeFrom) {
+                fromEl.textContent = `${dateRangeFrom.day} ${MONTHS_SHORT[dateRangeFrom.month]}`;
+            }
+            if (toEl && dateRangeTo) {
+                toEl.textContent = `${dateRangeTo.day} ${MONTHS_SHORT[dateRangeTo.month]}`;
+            }
+        }
+        
+        function renderMiniCal() {
+            const container = document.getElementById('miniCalActive');
+            if (!container || !activeDatePicker) return;
+            
+            const calMonth = activeDatePicker === 'from' ? miniCalFromMonth : miniCalToMonth;
             const { year, month } = calMonth;
             const DAYS_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
             const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
             
             let html = '<div class="mini-cal-nav">';
-            html += `<button onclick="navigateMiniCal('${type}', -1)">‹</button>`;
+            html += `<button onclick="navigateMiniCal(-1)">‹</button>`;
             html += `<span class="mini-cal-title">${MONTHS_SHORT[month]} ${year}</span>`;
-            html += `<button onclick="navigateMiniCal('${type}', 1)">›</button>`;
+            html += `<button onclick="navigateMiniCal(1)">›</button>`;
             html += '</div>';
             
             html += '<div class="mini-cal-grid">';
             
-            // Day headers
             DAYS_SHORT.forEach(d => {
                 html += `<div class="mini-cal-day-header">${d}</div>`;
             });
             
-            // Calculate first day and days in month
             const firstDay = new Date(year, month, 1).getDay();
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const startDay = firstDay === 0 ? 6 : firstDay - 1;
             
-            // Empty cells
             for (let i = 0; i < startDay; i++) {
                 html += '<div class="mini-cal-day empty"></div>';
             }
             
-            // Day cells
             for (let day = 1; day <= daysInMonth; day++) {
                 const thisDate = new Date(year, month, day);
                 let classes = 'mini-cal-day';
                 
-                // Check if selected
                 const isFromSelected = dateRangeFrom && dateRangeFrom.year === year && dateRangeFrom.month === month && dateRangeFrom.day === day;
                 const isToSelected = dateRangeTo && dateRangeTo.year === year && dateRangeTo.month === month && dateRangeTo.day === day;
                 
@@ -2945,32 +3025,26 @@ async function loadDataFromSheets() {
                     }
                 }
                 
-                html += `<div class="${classes}" onclick="selectMiniCalDay('${type}', ${year}, ${month}, ${day})">${day}</div>`;
+                html += `<div class="${classes}" onclick="selectMiniCalDay(${year}, ${month}, ${day})">${day}</div>`;
             }
             
             html += '</div>';
             container.innerHTML = html;
         }
         
-        function navigateMiniCal(type, delta) {
-            if (type === 'from') {
-                miniCalFromMonth.month += delta;
-                if (miniCalFromMonth.month > 11) { miniCalFromMonth.month = 0; miniCalFromMonth.year++; }
-                if (miniCalFromMonth.month < 0) { miniCalFromMonth.month = 11; miniCalFromMonth.year--; }
-                renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
-            } else {
-                miniCalToMonth.month += delta;
-                if (miniCalToMonth.month > 11) { miniCalToMonth.month = 0; miniCalToMonth.year++; }
-                if (miniCalToMonth.month < 0) { miniCalToMonth.month = 11; miniCalToMonth.year--; }
-                renderMiniCal('miniCalTo', miniCalToMonth, 'to');
-            }
-            // Re-render both to update in-range highlighting
-            renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
-            renderMiniCal('miniCalTo', miniCalToMonth, 'to');
+        function navigateMiniCal(delta) {
+            if (!activeDatePicker) return;
+            const calMonth = activeDatePicker === 'from' ? miniCalFromMonth : miniCalToMonth;
+            calMonth.month += delta;
+            if (calMonth.month > 11) { calMonth.month = 0; calMonth.year++; }
+            if (calMonth.month < 0) { calMonth.month = 11; calMonth.year--; }
+            renderMiniCal();
         }
         
-        function selectMiniCalDay(type, year, month, day) {
-            if (type === 'from') {
+        function selectMiniCalDay(year, month, day) {
+            if (!activeDatePicker) return;
+            
+            if (activeDatePicker === 'from') {
                 dateRangeFrom = { year, month, day };
             } else {
                 dateRangeTo = { year, month, day };
@@ -2981,20 +3055,19 @@ async function loadDataFromSheets() {
                 const fromDate = new Date(dateRangeFrom.year, dateRangeFrom.month, dateRangeFrom.day);
                 const toDate = new Date(dateRangeTo.year, dateRangeTo.month, dateRangeTo.day);
                 if (fromDate > toDate) {
-                    // Swap
                     const temp = { ...dateRangeFrom };
                     dateRangeFrom = { ...dateRangeTo };
                     dateRangeTo = temp;
-                    // Update mini cal navigation months
                     miniCalFromMonth = { year: dateRangeFrom.year, month: dateRangeFrom.month };
                     miniCalToMonth = { year: dateRangeTo.year, month: dateRangeTo.month };
                 }
             }
             
-            // Re-render both calendars to show updated selection
-            renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
-            renderMiniCal('miniCalTo', miniCalToMonth, 'to');
+            updateDateFieldValues();
             updateDateRangeSummary();
+            
+            // Close picker after selection
+            closeDatePicker();
         }
         
         function updateDateRangeSummary() {
