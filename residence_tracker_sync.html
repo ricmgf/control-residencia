@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Version: 2026-01-31-FINAL-FIXED-v4 - ES duplicado eliminado -->
+<!-- Version: 2026-02-08 - Date range modal, chronological bars, duplicate calendar -->
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1264,6 +1264,167 @@
         .hidden {
             display: none !important;
         }
+
+        /* Date Range Picker in Modal */
+        .date-range-section {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e8e8e8;
+        }
+
+        .date-range-header {
+            font-weight: 600;
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .date-range-pickers {
+            display: flex;
+            gap: 12px;
+        }
+
+        @media (max-width: 500px) {
+            .date-range-pickers {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+
+        .date-picker-col {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .date-picker-label {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .mini-cal {
+            background: white;
+            border-radius: 8px;
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .mini-cal-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .mini-cal-nav button {
+            background: none;
+            border: none;
+            font-size: 1em;
+            cursor: pointer;
+            color: #667eea;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .mini-cal-nav button:hover {
+            background: #eef0ff;
+        }
+
+        .mini-cal-title {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #333;
+            text-align: center;
+        }
+
+        .mini-cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+
+        .mini-cal-day-header {
+            text-align: center;
+            font-size: 0.6em;
+            font-weight: 600;
+            color: #999;
+            padding: 2px 0;
+        }
+
+        .mini-cal-day {
+            text-align: center;
+            font-size: 0.75em;
+            padding: 4px 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            color: #333;
+            line-height: 1;
+        }
+
+        .mini-cal-day:hover {
+            background: #eef0ff;
+        }
+
+        .mini-cal-day.selected {
+            background: #667eea;
+            color: white;
+            font-weight: 700;
+        }
+
+        .mini-cal-day.in-range {
+            background: #e8ecff;
+            color: #667eea;
+        }
+
+        .mini-cal-day.empty {
+            cursor: default;
+        }
+
+        .mini-cal-day.empty:hover {
+            background: transparent;
+        }
+
+        .date-range-summary {
+            text-align: center;
+            font-size: 0.82em;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 8px;
+            padding: 4px;
+            min-height: 22px;
+        }
+
+        /* Duplicate button */
+        .duplicate-btn {
+            padding: 6px 14px;
+            border: 2px solid rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s;
+            font-weight: 600;
+            margin-top: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .duplicate-btn:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: white;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -1296,6 +1457,7 @@
                 <button class="profile-btn active" onclick="switchProfile('Ricardo')">Ricardo</button>
                 <button class="profile-btn" onclick="switchProfile('Sylvia')">Sylvia</button>
             </div>
+            <button class="duplicate-btn" id="duplicateBtn" onclick="duplicateCalendar()">📋 Duplicar colores a Sylvia</button>
         </div>
 
         <div class="dashboard">
@@ -1380,6 +1542,23 @@
                     <span class="modal-checkbox-label">Todos</span>
                 </label>
             </div>
+            
+            <!-- Date Range Section -->
+            <div class="date-range-section">
+                <div class="date-range-header">📅 Rango de fechas (opcional)</div>
+                <div class="date-range-pickers">
+                    <div class="date-picker-col">
+                        <div class="date-picker-label">Desde</div>
+                        <div class="mini-cal" id="miniCalFrom"></div>
+                    </div>
+                    <div class="date-picker-col">
+                        <div class="date-picker-label">Hasta</div>
+                        <div class="mini-cal" id="miniCalTo"></div>
+                    </div>
+                </div>
+                <div class="date-range-summary" id="dateRangeSummary"></div>
+            </div>
+            
             <div class="modal-label">Nota / Evento:</div>
             <div class="format-buttons" style="margin-bottom: 8px; display: flex; gap: 8px;">
                 <button type="button" class="format-btn" onclick="applyFormat('black')" style="background: #000; color: #fff; padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">⬛ Negro</button>
@@ -1432,6 +1611,10 @@
         let currentProfile = 'Ricardo';
         let selectedLocation = 'MAD';
         let currentEditDay = null;
+        let dateRangeFrom = null; // {year, month, day}
+        let dateRangeTo = null;   // {year, month, day}
+        let miniCalFromMonth = null; // {year, month} for navigation
+        let miniCalToMonth = null;   // {year, month} for navigation
         let tokenClient;
         let accessToken = null;
         let lastCalendarSync = null;
@@ -2042,6 +2225,7 @@ async function loadDataFromSheets() {
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
+            updateDuplicateButton();
             renderCalendar();
             updateSummary();
         }
@@ -2242,6 +2426,17 @@ async function loadDataFromSheets() {
             
             document.getElementById('modalHeader').textContent = `📝 ${dateStr}`;
             
+            // Initialize date range to the clicked day
+            dateRangeFrom = { year, month, day };
+            dateRangeTo = { year, month, day };
+            miniCalFromMonth = { year, month };
+            miniCalToMonth = { year, month };
+            
+            // Render mini calendars
+            renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
+            renderMiniCal('miniCalTo', miniCalToMonth, 'to');
+            updateDateRangeSummary();
+            
             // Convertir tags a HTML
             let noteHtml = (dayData.note || '')
                 .replace(/<r>(.*?)<\/r>/g, '<span style="color: rgb(194, 2, 2);" data-color="red">$1</span>')
@@ -2305,7 +2500,6 @@ async function loadDataFromSheets() {
             if (!currentEditDay) return;
             
             try {
-                const { year, month, day } = currentEditDay;
                 const noteInput = document.getElementById('noteInput');
                 const applyToAll = document.getElementById('applyToAllCheckbox').checked;
                 
@@ -2329,27 +2523,30 @@ async function loadDataFromSheets() {
                 // Limpiar saltos de línea múltiples
                 note = note.replace(/\n\s*\n/g, '\n').trim();
                 
-                const key = getDayKey(year, month, day);
+                // Build list of days to apply the note to
+                const daysToApply = getDateRangeDays(dateRangeFrom, dateRangeTo);
                 
-                // Guardar en el perfil actual
-                if (!data[currentProfile][key]) {
-                    data[currentProfile][key] = { location: null, note: '', timestamp: Date.now() };
-                }
-                data[currentProfile][key].note = note;
-                data[currentProfile][key].timestamp = Date.now();
-                
-                // Si el checkbox "Todos" está marcado, guardar también en el otro perfil
-                if (applyToAll) {
-                    const otherProfile = currentProfile === 'Ricardo' ? 'Sylvia' : 'Ricardo';
-                    if (!data[otherProfile]) {
-                        data[otherProfile] = {};
+                daysToApply.forEach(dateKey => {
+                    // Guardar en el perfil actual
+                    if (!data[currentProfile][dateKey]) {
+                        data[currentProfile][dateKey] = { location: null, note: '', timestamp: Date.now() };
                     }
-                    if (!data[otherProfile][key]) {
-                        data[otherProfile][key] = { location: null, note: '', timestamp: Date.now() };
+                    data[currentProfile][dateKey].note = note;
+                    data[currentProfile][dateKey].timestamp = Date.now();
+                    
+                    // Si el checkbox "Todos" está marcado, guardar también en el otro perfil
+                    if (applyToAll) {
+                        const otherProfile = currentProfile === 'Ricardo' ? 'Sylvia' : 'Ricardo';
+                        if (!data[otherProfile]) {
+                            data[otherProfile] = {};
+                        }
+                        if (!data[otherProfile][dateKey]) {
+                            data[otherProfile][dateKey] = { location: null, note: '', timestamp: Date.now() };
+                        }
+                        data[otherProfile][dateKey].note = note;
+                        data[otherProfile][dateKey].timestamp = Date.now();
                     }
-                    data[otherProfile][key].note = note;
-                    data[otherProfile][key].timestamp = Date.now();
-                }
+                });
                 
                 // Backup local
                 localStorage.setItem('residenceData', JSON.stringify(data));
@@ -2362,6 +2559,156 @@ async function loadDataFromSheets() {
             } catch (err) {
                 console.error('Error:', err);
                 closeModal();
+            }
+        }
+        
+        // Helper: get all date keys in a range
+        function getDateRangeDays(from, to) {
+            if (!from || !to) return [];
+            const startDate = new Date(from.year, from.month, from.day);
+            const endDate = new Date(to.year, to.month, to.day);
+            
+            // Ensure start <= end
+            const actualStart = startDate <= endDate ? startDate : endDate;
+            const actualEnd = startDate <= endDate ? endDate : startDate;
+            
+            const days = [];
+            const current = new Date(actualStart);
+            while (current <= actualEnd) {
+                const y = current.getFullYear();
+                const m = current.getMonth();
+                const d = current.getDate();
+                days.push(getDayKey(y, m, d));
+                current.setDate(current.getDate() + 1);
+            }
+            return days;
+        }
+        
+        // ===============================
+        // MINI CALENDAR RENDERING
+        // ===============================
+        
+        function renderMiniCal(containerId, calMonth, type) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const { year, month } = calMonth;
+            const DAYS_SHORT = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+            const MONTHS_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            
+            let html = '<div class="mini-cal-nav">';
+            html += `<button onclick="navigateMiniCal('${type}', -1)">‹</button>`;
+            html += `<span class="mini-cal-title">${MONTHS_SHORT[month]} ${year}</span>`;
+            html += `<button onclick="navigateMiniCal('${type}', 1)">›</button>`;
+            html += '</div>';
+            
+            html += '<div class="mini-cal-grid">';
+            
+            // Day headers
+            DAYS_SHORT.forEach(d => {
+                html += `<div class="mini-cal-day-header">${d}</div>`;
+            });
+            
+            // Calculate first day and days in month
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startDay = firstDay === 0 ? 6 : firstDay - 1;
+            
+            // Empty cells
+            for (let i = 0; i < startDay; i++) {
+                html += '<div class="mini-cal-day empty"></div>';
+            }
+            
+            // Day cells
+            for (let day = 1; day <= daysInMonth; day++) {
+                const thisDate = new Date(year, month, day);
+                let classes = 'mini-cal-day';
+                
+                // Check if selected
+                const isFromSelected = dateRangeFrom && dateRangeFrom.year === year && dateRangeFrom.month === month && dateRangeFrom.day === day;
+                const isToSelected = dateRangeTo && dateRangeTo.year === year && dateRangeTo.month === month && dateRangeTo.day === day;
+                
+                if (isFromSelected || isToSelected) {
+                    classes += ' selected';
+                } else if (dateRangeFrom && dateRangeTo) {
+                    const fromDate = new Date(dateRangeFrom.year, dateRangeFrom.month, dateRangeFrom.day);
+                    const toDate = new Date(dateRangeTo.year, dateRangeTo.month, dateRangeTo.day);
+                    const actualFrom = fromDate <= toDate ? fromDate : toDate;
+                    const actualTo = fromDate <= toDate ? toDate : fromDate;
+                    if (thisDate > actualFrom && thisDate < actualTo) {
+                        classes += ' in-range';
+                    }
+                }
+                
+                html += `<div class="${classes}" onclick="selectMiniCalDay('${type}', ${year}, ${month}, ${day})">${day}</div>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        function navigateMiniCal(type, delta) {
+            if (type === 'from') {
+                miniCalFromMonth.month += delta;
+                if (miniCalFromMonth.month > 11) { miniCalFromMonth.month = 0; miniCalFromMonth.year++; }
+                if (miniCalFromMonth.month < 0) { miniCalFromMonth.month = 11; miniCalFromMonth.year--; }
+                renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
+            } else {
+                miniCalToMonth.month += delta;
+                if (miniCalToMonth.month > 11) { miniCalToMonth.month = 0; miniCalToMonth.year++; }
+                if (miniCalToMonth.month < 0) { miniCalToMonth.month = 11; miniCalToMonth.year--; }
+                renderMiniCal('miniCalTo', miniCalToMonth, 'to');
+            }
+            // Re-render both to update in-range highlighting
+            renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
+            renderMiniCal('miniCalTo', miniCalToMonth, 'to');
+        }
+        
+        function selectMiniCalDay(type, year, month, day) {
+            if (type === 'from') {
+                dateRangeFrom = { year, month, day };
+            } else {
+                dateRangeTo = { year, month, day };
+            }
+            
+            // Auto-correct: ensure from <= to
+            if (dateRangeFrom && dateRangeTo) {
+                const fromDate = new Date(dateRangeFrom.year, dateRangeFrom.month, dateRangeFrom.day);
+                const toDate = new Date(dateRangeTo.year, dateRangeTo.month, dateRangeTo.day);
+                if (fromDate > toDate) {
+                    // Swap
+                    const temp = { ...dateRangeFrom };
+                    dateRangeFrom = { ...dateRangeTo };
+                    dateRangeTo = temp;
+                    // Update mini cal navigation months
+                    miniCalFromMonth = { year: dateRangeFrom.year, month: dateRangeFrom.month };
+                    miniCalToMonth = { year: dateRangeTo.year, month: dateRangeTo.month };
+                }
+            }
+            
+            // Re-render both calendars to show updated selection
+            renderMiniCal('miniCalFrom', miniCalFromMonth, 'from');
+            renderMiniCal('miniCalTo', miniCalToMonth, 'to');
+            updateDateRangeSummary();
+        }
+        
+        function updateDateRangeSummary() {
+            const summary = document.getElementById('dateRangeSummary');
+            if (!summary) return;
+            
+            if (!dateRangeFrom || !dateRangeTo) {
+                summary.textContent = '';
+                return;
+            }
+            
+            const fromDate = new Date(dateRangeFrom.year, dateRangeFrom.month, dateRangeFrom.day);
+            const toDate = new Date(dateRangeTo.year, dateRangeTo.month, dateRangeTo.day);
+            
+            if (fromDate.getTime() === toDate.getTime()) {
+                summary.textContent = `Solo ${dateRangeFrom.day} ${MONTHS[dateRangeFrom.month].substring(0, 3)}`;
+            } else {
+                const days = getDateRangeDays(dateRangeFrom, dateRangeTo);
+                summary.textContent = `${dateRangeFrom.day} ${MONTHS[dateRangeFrom.month].substring(0, 3)} → ${dateRangeTo.day} ${MONTHS[dateRangeTo.month].substring(0, 3)} (${days.length} días)`;
             }
         }
 
@@ -2386,7 +2733,7 @@ async function loadDataFromSheets() {
                 }
             });
 
-            // Crear barras para cada mes
+            // Crear barras para cada mes - CRONOLÓGICAS
             for (let m = 0; m < 12; m++) {
                 const row = document.createElement('div');
                 row.className = 'month-bar-row';
@@ -2403,41 +2750,54 @@ async function loadDataFromSheets() {
 
                 // Calcular días del mes
                 const daysInMonth = new Date(currentYear, m + 1, 0).getDate();
-                const mad = monthlyCounts[m].MAD || 0;
-                const and = monthlyCounts[m].AND || 0;
-                const it = monthlyCounts[m].IT || 0;
-                const fr = monthlyCounts[m].FR || 0;
-                const other = monthlyCounts[m].OTHER || 0;
                 
-                const spain = mad + and;
+                // Build chronological runs of locations
+                const runs = [];
+                let currentRun = null;
                 
-                // Crear segmentos de la barra en orden: MAD, AND, IT, FR, OTHER
-                const segments = [
-                    { loc: 'MAD', days: mad, label: 'MD', title: `Madrid: ${mad} días` },
-                    { loc: 'AND', days: and, label: 'AND', title: `Andratx: ${and} días` },
-                    { loc: 'IT', days: it, label: 'IT', title: `Italia: ${it} días` },
-                    { loc: 'FR', days: fr, label: 'FR', title: `Francia: ${fr} días` },
-                    { loc: 'OTHER', days: other, label: 'TRP', title: `Trips: ${other} días` }
-                ];
-
-                segments.forEach(seg => {
-                    if (seg.days > 0) {
-                        const segment = document.createElement('div');
-                        segment.className = 'month-bar-segment';
-                        const percentage = (seg.days / daysInMonth) * 100;
-                        segment.style.width = `${percentage}%`;
-                        segment.style.backgroundColor = LOCATIONS[seg.loc].color;
-                        segment.title = seg.title;
-                        
-                        // Solo mostrar label si hay espacio suficiente
-                        if (percentage > 15) {
-                            segment.textContent = `${seg.label} ${seg.days}`;
-                        } else if (percentage > 8) {
-                            segment.textContent = seg.days;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const key = getDayKey(currentYear, m, d);
+                    const dayData = data[currentProfile][key];
+                    const loc = dayData ? dayData.location : null;
+                    
+                    if (loc) {
+                        if (currentRun && currentRun.loc === loc) {
+                            currentRun.days++;
+                        } else {
+                            if (currentRun) runs.push(currentRun);
+                            currentRun = { loc: loc, days: 1 };
                         }
-                        
-                        barContainer.appendChild(segment);
+                    } else {
+                        if (currentRun) {
+                            runs.push(currentRun);
+                            currentRun = null;
+                        }
                     }
+                }
+                if (currentRun) runs.push(currentRun);
+                
+                // Total assigned days for percentage calculation
+                const totalAssigned = runs.reduce((sum, r) => sum + r.days, 0);
+                
+                // Location labels
+                const LOC_LABELS = { MAD: 'MD', AND: 'AND', IT: 'IT', FR: 'FR', OTHER: 'TRP' };
+                
+                runs.forEach(run => {
+                    const segment = document.createElement('div');
+                    segment.className = 'month-bar-segment';
+                    const percentage = (run.days / daysInMonth) * 100;
+                    segment.style.width = `${percentage}%`;
+                    segment.style.backgroundColor = LOCATIONS[run.loc].color;
+                    segment.title = `${LOCATIONS[run.loc].name}: ${run.days} días`;
+                    
+                    // Solo mostrar label si hay espacio suficiente
+                    if (percentage > 15) {
+                        segment.textContent = `${LOC_LABELS[run.loc]} ${run.days}`;
+                    } else if (percentage > 8) {
+                        segment.textContent = run.days;
+                    }
+                    
+                    barContainer.appendChild(segment);
                 });
 
                 row.appendChild(barContainer);
@@ -2625,6 +2985,61 @@ async function loadDataFromSheets() {
             };
             reader.readAsText(file);
             event.target.value = '';
+        }
+
+        // ===============================
+        // DUPLICATE CALENDAR
+        // ===============================
+        
+        function updateDuplicateButton() {
+            const btn = document.getElementById('duplicateBtn');
+            if (!btn) return;
+            const otherProfile = currentProfile === 'Ricardo' ? 'Sylvia' : 'Ricardo';
+            btn.textContent = `📋 Duplicar colores a ${otherProfile}`;
+        }
+        
+        function duplicateCalendar() {
+            const otherProfile = currentProfile === 'Ricardo' ? 'Sylvia' : 'Ricardo';
+            
+            if (!confirm(`⚠️ ¿Estás seguro?\n\nEsto copiará TODOS los colores (ubicaciones) de ${currentProfile} a ${otherProfile} para el año ${currentYear}.\n\nLos colores existentes de ${otherProfile} en ${currentYear} serán sobrescritos.\nLas notas de ${otherProfile} se mantendrán.`)) {
+                return;
+            }
+            
+            if (!data[otherProfile]) {
+                data[otherProfile] = {};
+            }
+            
+            // Iterate through all days of the current year
+            for (let m = 0; m < 12; m++) {
+                const daysInMonth = new Date(currentYear, m + 1, 0).getDate();
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const key = getDayKey(currentYear, m, d);
+                    const sourceData = data[currentProfile][key];
+                    const sourceLocation = sourceData ? sourceData.location : null;
+                    
+                    if (sourceLocation) {
+                        // If target day doesn't exist, create it
+                        if (!data[otherProfile][key]) {
+                            data[otherProfile][key] = { location: null, note: '', timestamp: Date.now() };
+                        }
+                        // Copy only the location, preserve existing note
+                        data[otherProfile][key].location = sourceLocation;
+                        data[otherProfile][key].timestamp = Date.now();
+                    } else {
+                        // Source has no location — clear location in target too
+                        if (data[otherProfile][key]) {
+                            data[otherProfile][key].location = null;
+                            data[otherProfile][key].timestamp = Date.now();
+                        }
+                    }
+                }
+            }
+            
+            // Save
+            localStorage.setItem('residenceData', JSON.stringify(data));
+            scheduleAutoSave();
+            
+            alert(`✅ Colores duplicados de ${currentProfile} a ${otherProfile} para ${currentYear}.`);
         }
 
         window.addEventListener('keydown', function(e) {
